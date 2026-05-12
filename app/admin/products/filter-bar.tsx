@@ -71,14 +71,18 @@ export function FilterBar({
           value={categoryId}
           onValueChange={(v) => updateParam("categoryId", v)}
           disabled={pending}
+          items={[
+            { value: ALL, label: "All categories" },
+            ...categories.map((c) => ({ value: c.id, label: c.name })),
+          ]}
         >
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL} label="All categories">All categories</SelectItem>
+            <SelectItem value={ALL}>All categories</SelectItem>
             {categories.map((c) => (
-              <SelectItem key={c.id} value={c.id} label={c.name}>
+              <SelectItem key={c.id} value={c.id}>
                 {c.name}
               </SelectItem>
             ))}

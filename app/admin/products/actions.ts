@@ -21,19 +21,60 @@ const optionalString = z.preprocess(
   z.string().nullable(),
 );
 
-const ProductSchema = z.object({
-  name: z.string().trim().min(2, "Name must be at least 2 characters."),
-  description: optionalString,
-  categoryId: z.string().min(1, "Pick a category."),
-  qty: z.coerce.number().int().nonnegative(),
-  minStock: z.coerce.number().int().nonnegative(),
-  productDate: optionalDate,
-  expiryDate: optionalDate,
-  deliveryDate: optionalDate,
-  supplierId: optionalString,
-  location: z.enum(["OFFICE", "STORE"]),
-  archived: z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean()),
-});
+function dayUTC(d: Date): number {
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
+const ProductSchema = z
+  .object({
+    name: z.string().trim().min(2, "Name must be at least 2 characters."),
+    description: optionalString,
+    categoryId: z.string().min(1, "Pick a category."),
+    qty: z.coerce.number().int().nonnegative(),
+    minStock: z.coerce.number().int().nonnegative(),
+    productDate: optionalDate,
+    expiryDate: optionalDate,
+    deliveryDate: optionalDate,
+    supplierId: optionalString,
+    location: z.enum(["OFFICE", "STORE"]),
+    archived: z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean()),
+  })
+  .superRefine((data, ctx) => {
+    const now = new Date();
+    const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const prod = data.productDate ? dayUTC(data.productDate) : null;
+    const exp = data.expiryDate ? dayUTC(data.expiryDate) : null;
+    const del = data.deliveryDate ? dayUTC(data.deliveryDate) : null;
+
+    if (prod !== null && prod > today) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["productDate"],
+        message: "Product date cannot be in the future.",
+      });
+    }
+    if (prod !== null && exp !== null && exp < prod) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["expiryDate"],
+        message: "Expiry date must be on or after the product date.",
+      });
+    }
+    if (prod !== null && del !== null && del < prod) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["deliveryDate"],
+        message: "Delivery date must be on or after the product date.",
+      });
+    }
+    if (exp !== null && del !== null && del > exp) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["deliveryDate"],
+        message: "Delivery date must be on or before the expiry date.",
+      });
+    }
+  });
 
 type ProductInput = z.infer<typeof ProductSchema>;
 

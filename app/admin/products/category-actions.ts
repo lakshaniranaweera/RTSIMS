@@ -56,6 +56,45 @@ export async function createCategory(
   return { ok: true, message: `Created category “${name}”` };
 }
 
+export async function updateCategory(
+  _prev: CategoryFormState,
+  formData: FormData,
+): Promise<CategoryFormState> {
+  await requirePermission("menu.products");
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { ok: false, error: "Missing category id." };
+
+  const parsed = CategorySchema.safeParse({ name: formData.get("name") });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Please correct the highlighted fields.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const { name } = parsed.data;
+  const slug = slugify(name);
+  if (!slug) return { ok: false, error: "Name must contain at least one letter or digit." };
+
+  try {
+    await prisma.category.update({ where: { id }, data: { name, slug } });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return {
+        ok: false,
+        error: "A category with that name already exists.",
+        fieldErrors: { name: ["Name is taken."] },
+      };
+    }
+    throw e;
+  }
+
+  revalidatePath("/admin/products");
+  return { ok: true, message: `Updated category “${name}”` };
+}
+
 export async function deleteCategory(formData: FormData) {
   await requirePermission("menu.products");
   const id = String(formData.get("id") ?? "");

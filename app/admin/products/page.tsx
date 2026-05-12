@@ -25,6 +25,8 @@ import { AddCategoryDialog } from "./add-category-dialog";
 import { AddSupplierDialog } from "./add-supplier-dialog";
 import { AddProductDialog } from "./add-product-dialog";
 import { TaxonomyDeleteButton } from "./taxonomy-row-actions";
+import { EditCategoryDialog } from "./edit-category-dialog";
+import { EditSupplierDialog } from "./edit-supplier-dialog";
 import { ProductTabs, type ProductTab } from "./tabs";
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", {
@@ -324,7 +326,10 @@ export default async function ProductsPage({
                             </TableCell>
                             <TableCell className="text-right tabular-nums">{inUse}</TableCell>
                             <TableCell className="text-right">
-                              <TaxonomyDeleteButton id={c.id} kind="category" inUse={inUse} />
+                              <div className="inline-flex items-center gap-2">
+                                <EditCategoryDialog category={{ id: c.id, name: c.name }} />
+                                <TaxonomyDeleteButton id={c.id} kind="category" inUse={inUse} />
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -393,7 +398,18 @@ export default async function ProductsPage({
                             </TableCell>
                             <TableCell className="text-right tabular-nums">{inUse}</TableCell>
                             <TableCell className="text-right">
-                              <TaxonomyDeleteButton id={s.id} kind="supplier" inUse={inUse} />
+                              <div className="inline-flex items-center gap-2">
+                                <EditSupplierDialog
+                                  supplier={{
+                                    id: s.id,
+                                    name: s.name,
+                                    contactName: s.contactName,
+                                    email: s.email,
+                                    phone: s.phone,
+                                  }}
+                                />
+                                <TaxonomyDeleteButton id={s.id} kind="supplier" inUse={inUse} />
+                              </div>
                             </TableCell>
                           </TableRow>
                         );

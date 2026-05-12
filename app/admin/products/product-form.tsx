@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -61,6 +61,11 @@ export function ProductForm({
     undefined,
   );
   const router = useRouter();
+  const [hasExpiry, setHasExpiry] = useState(defaults.expiryDate != null);
+  const [productDate, setProductDate] = useState(dateInput(defaults.productDate));
+  const [expiryDate, setExpiryDate] = useState(dateInput(defaults.expiryDate));
+  const [deliveryDate, setDeliveryDate] = useState(dateInput(defaults.deliveryDate));
+  const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     if (state?.ok) {
@@ -116,13 +121,14 @@ export function ProductForm({
           defaultValue={defaults.categoryId}
           disabled={pending}
           required
+          items={categories.map((c) => ({ value: c.id, label: c.name }))}
         >
           <SelectTrigger id="categoryId">
             <SelectValue placeholder="Pick a category" />
           </SelectTrigger>
           <SelectContent>
             {categories.map((c) => (
-              <SelectItem key={c.id} value={c.id} label={c.name}>
+              <SelectItem key={c.id} value={c.id}>
                 {c.name}
               </SelectItem>
             ))}
@@ -140,13 +146,17 @@ export function ProductForm({
           defaultValue={defaults.location ?? "STORE"}
           disabled={pending}
           required
+          items={[
+            { value: "OFFICE", label: "Office" },
+            { value: "STORE", label: "Store" },
+          ]}
         >
           <SelectTrigger id="location">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="OFFICE" label="Office">Office</SelectItem>
-            <SelectItem value="STORE" label="Store">Store</SelectItem>
+            <SelectItem value="OFFICE">Office</SelectItem>
+            <SelectItem value="STORE">Store</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -157,20 +167,23 @@ export function ProductForm({
           name="supplierId"
           defaultValue={defaults.supplierId ?? NONE}
           disabled={pending}
+          items={[
+            { value: NONE, label: "— None —" },
+            ...suppliers.map((s) => ({ value: s.id, label: s.name })),
+          ]}
         >
           <SelectTrigger id="supplierId">
             <SelectValue placeholder="— None —" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NONE} label="— None —">— None —</SelectItem>
+            <SelectItem value={NONE}>— None —</SelectItem>
             {suppliers.map((s) => (
-              <SelectItem key={s.id} value={s.id} label={s.name}>
+              <SelectItem key={s.id} value={s.id}>
                 {s.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        {/* Server treats __none__ as null via optionalString preprocessor below — handled via JS swap before submit */}
       </div>
 
       <div className="grid gap-1.5">
@@ -211,20 +224,49 @@ export function ProductForm({
           id="productDate"
           name="productDate"
           type="date"
-          defaultValue={dateInput(defaults.productDate)}
+          value={productDate}
+          onChange={(e) => setProductDate(e.target.value)}
+          max={today}
           disabled={pending}
         />
+        {fe.productDate?.[0] && (
+          <p className="text-xs text-destructive">{fe.productDate[0]}</p>
+        )}
       </div>
 
       <div className="grid gap-1.5">
-        <Label htmlFor="expiryDate">Expiry date</Label>
-        <Input
-          id="expiryDate"
-          name="expiryDate"
-          type="date"
-          defaultValue={dateInput(defaults.expiryDate)}
-          disabled={pending}
-        />
+        <Label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={hasExpiry}
+            onChange={(e) => {
+              setHasExpiry(e.target.checked);
+              if (!e.target.checked) setExpiryDate("");
+            }}
+            disabled={pending}
+            className="size-4"
+          />
+          Has expiry date
+        </Label>
+        {hasExpiry && (
+          <Input
+            id="expiryDate"
+            name="expiryDate"
+            type="date"
+            value={expiryDate}
+            onChange={(e) => setExpiryDate(e.target.value)}
+            min={productDate || undefined}
+            disabled={pending}
+          />
+        )}
+        {hasExpiry && fe.expiryDate?.[0] && (
+          <p className="text-xs text-destructive">{fe.expiryDate[0]}</p>
+        )}
+        {!hasExpiry && (
+          <p className="text-xs text-muted-foreground">
+            Item does not expire (e.g. electronics, hardware).
+          </p>
+        )}
       </div>
 
       <div className="grid gap-1.5">
@@ -233,9 +275,15 @@ export function ProductForm({
           id="deliveryDate"
           name="deliveryDate"
           type="date"
-          defaultValue={dateInput(defaults.deliveryDate)}
+          value={deliveryDate}
+          onChange={(e) => setDeliveryDate(e.target.value)}
+          min={productDate || undefined}
+          max={hasExpiry && expiryDate ? expiryDate : undefined}
           disabled={pending}
         />
+        {fe.deliveryDate?.[0] && (
+          <p className="text-xs text-destructive">{fe.deliveryDate[0]}</p>
+        )}
       </div>
 
       {mode === "edit" && (
