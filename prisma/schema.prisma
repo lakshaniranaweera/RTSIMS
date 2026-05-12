@@ -1,0 +1,306 @@
+// IMS — Prisma schema
+// Generator + datasource
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Connection URL is provided via prisma.config.ts (Prisma 7+)
+// and via the pg adapter at runtime (see lib/prisma.ts).
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+
+enum Role {
+  ADMIN
+  STORES
+  STAFF
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  PACKING
+  PACKED
+  DELIVERED
+  REJECTED
+}
+
+enum PermissionEffect {
+  ALLOW
+  DENY
+}
+
+enum ProductLocation {
+  OFFICE
+  STORE
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auth & users
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(STAFF)
+  avatarUrl    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  sessions           Session[]
+  requests           Request[]
+  cart               RequestCart?
+  requestEvents      RequestEvent[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  productLogs        ProductLog[]
+  permissions        UserPermission[] @relation("UserPermissions")
+  grantedPermissions UserPermission[] @relation("PermissionGrantor")
+
+  @@index([role])
+  @@index([deletedAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Authorization (RBAC + per-user overrides)
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  label       String
+  group       String?
+  description String?
+  createdAt   DateTime @default(now())
+
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+}
+
+model RolePermission {
+  id           String @id @default(cuid())
+  role         Role
+  permissionId String
+
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([role, permissionId])
+  @@index([role])
+}
+
+model UserPermission {
+  id           String           @id @default(cuid())
+  userId       String
+  permissionId String
+  effect       PermissionEffect
+  grantedById  String?
+  grantedAt    DateTime         @default(now())
+
+  user       User       @relation("UserPermissions", fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  grantedBy  User?      @relation("PermissionGrantor", fields: [grantedById], references: [id])
+
+  @@unique([userId, permissionId])
+  @@index([userId])
+}
+
+// Refresh-token store (separate from Auth.js JWT session strategy)
+model Session {
+  id           String   @id @default(cuid())
+  refreshToken String   @unique
+  userId       String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  revokedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Catalogue
+
+model Category {
+  id   String @id @default(cuid())
+  name String @unique
+  slug String @unique
+
+  products Product[]
+}
+
+model Supplier {
+  id          String  @id @default(cuid())
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+
+  @@index([name])
+}
+
+model Product {
+  id           String    @id @default(cuid())
+  name         String
+  description  String?
+  categoryId   String
+  qty          Int       @default(0)
+  minStock     Int       @default(0)
+  productDate  DateTime?
+  expiryDate   DateTime?
+  deliveryDate DateTime?
+  supplierId   String?
+  imageUrl     String?
+  archived     Boolean   @default(false)
+  location     ProductLocation @default(STORE)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  category     Category      @relation(fields: [categoryId], references: [id])
+  supplier     Supplier?     @relation(fields: [supplierId], references: [id])
+  requestItems RequestItem[]
+  cartItems    CartItem[]
+  logs         ProductLog[]
+
+  @@index([categoryId])
+  @@index([supplierId])
+  @@index([archived])
+  @@index([expiryDate])
+  @@index([qty])
+  @@index([name])
+  @@index([location])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cart & requests
+
+model RequestCart {
+  id        String   @id @default(cuid())
+  staffId   String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  staff User       @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  items CartItem[]
+}
+
+model CartItem {
+  id        String @id @default(cuid())
+  cartId    String
+  productId String
+  qty       Int
+  createdAt DateTime @default(now())
+
+  cart    RequestCart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product     @relation(fields: [productId], references: [id])
+
+  @@unique([cartId, productId])
+  @@index([productId])
+}
+
+model Request {
+  id        String        @id @default(cuid())
+  staffId   String
+  status    RequestStatus @default(PENDING)
+  note      String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  staff  User           @relation(fields: [staffId], references: [id])
+  items  RequestItem[]
+  events RequestEvent[]
+
+  @@index([staffId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model RequestItem {
+  id        String @id @default(cuid())
+  requestId String
+  productId String
+  qty       Int
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([requestId])
+  @@index([productId])
+}
+
+model RequestEvent {
+  id        String        @id @default(cuid())
+  requestId String
+  status    RequestStatus
+  actorId   String
+  reason    String?
+  timestamp DateTime      @default(now())
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  actor   User    @relation(fields: [actorId], references: [id])
+
+  @@index([requestId])
+  @@index([actorId])
+  @@index([timestamp])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Notifications & audit
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+model ProductLog {
+  id        String   @id @default(cuid())
+  productId String
+  field     String
+  oldValue  String?
+  newValue  String?
+  actorId   String
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  actor   User    @relation(fields: [actorId], references: [id])
+
+  @@index([productId])
+  @@index([actorId])
+  @@index([createdAt])
+}
