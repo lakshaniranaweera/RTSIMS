@@ -76,9 +76,9 @@ export function FilterBar({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All categories</SelectItem>
+            <SelectItem value={ALL} label="All categories">All categories</SelectItem>
             {categories.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
+              <SelectItem key={c.id} value={c.id} label={c.name}>
                 {c.name}
               </SelectItem>
             ))}

@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -85,7 +84,7 @@ export async function createProduct(
   }
 
   revalidatePath("/admin/products");
-  redirect(`/admin/products/${created.id}`);
+  return { ok: true, message: `Created “${parsed.data.name}”`, id: created.id };
 }
 
 const FIELDS_TRACKED = [

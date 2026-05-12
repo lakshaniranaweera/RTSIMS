@@ -47,11 +47,13 @@ export function ProductForm({
   defaults = {},
   categories,
   suppliers,
+  onSuccess,
 }: {
   mode: "create" | "edit";
   defaults?: Defaults;
   categories: { id: string; name: string }[];
   suppliers: { id: string; name: string }[];
+  onSuccess?: (id?: string) => void;
 }) {
   const action = mode === "create" ? createProduct : updateProduct;
   const [state, formAction, pending] = useActionState<ProductFormState, FormData>(
@@ -63,11 +65,17 @@ export function ProductForm({
   useEffect(() => {
     if (state?.ok) {
       toast.success(state.message);
-      if (mode === "edit") router.refresh();
+      if (onSuccess) {
+        onSuccess(state.id);
+      } else if (mode === "create" && state.id) {
+        router.push(`/admin/products/${state.id}`);
+      } else if (mode === "edit") {
+        router.refresh();
+      }
     } else if (state && !state.ok && state.error && !state.fieldErrors) {
       toast.error(state.error);
     }
-  }, [state, mode, router]);
+  }, [state, mode, router, onSuccess]);
 
   const fe = state && !state.ok ? state.fieldErrors ?? {} : {};
 
@@ -114,7 +122,7 @@ export function ProductForm({
           </SelectTrigger>
           <SelectContent>
             {categories.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
+              <SelectItem key={c.id} value={c.id} label={c.name}>
                 {c.name}
               </SelectItem>
             ))}
@@ -137,8 +145,8 @@ export function ProductForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="OFFICE">Office</SelectItem>
-            <SelectItem value="STORE">Store</SelectItem>
+            <SelectItem value="OFFICE" label="Office">Office</SelectItem>
+            <SelectItem value="STORE" label="Store">Store</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -154,9 +162,9 @@ export function ProductForm({
             <SelectValue placeholder="— None —" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NONE}>— None —</SelectItem>
+            <SelectItem value={NONE} label="— None —">— None —</SelectItem>
             {suppliers.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
+              <SelectItem key={s.id} value={s.id} label={s.name}>
                 {s.name}
               </SelectItem>
             ))}
