@@ -38,6 +38,7 @@ const ProductSchema = z
     supplierId: optionalString,
     location: z.enum(["OFFICE", "STORE"]),
     archived: z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean()),
+    fixedAsset: z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean()),
   })
   .superRefine((data, ctx) => {
     const now = new Date();
@@ -96,6 +97,7 @@ function parse(formData: FormData) {
     supplierId: formData.get("supplierId"),
     location: formData.get("location"),
     archived: formData.get("archived"),
+    fixedAsset: formData.get("fixedAsset"),
   });
 }
 
@@ -140,6 +142,7 @@ const FIELDS_TRACKED = [
   "supplierId",
   "location",
   "archived",
+  "fixedAsset",
 ] as const satisfies readonly (keyof ProductInput)[];
 
 function fmt(v: unknown): string {

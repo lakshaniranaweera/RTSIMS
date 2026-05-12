@@ -5,8 +5,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { deleteCategory } from "./category-actions";
 import { deleteSupplier } from "./supplier-actions";
+import { deleteBrand } from "./brand-actions";
 
-type Kind = "category" | "supplier";
+type Kind = "category" | "supplier" | "brand";
 
 export function TaxonomyDeleteButton({
   id,
@@ -18,8 +19,8 @@ export function TaxonomyDeleteButton({
   inUse: number;
 }) {
   const [pending, startTransition] = useTransition();
-  const action = kind === "category" ? deleteCategory : deleteSupplier;
-  const noun = kind === "category" ? "category" : "supplier";
+  const action = kind === "category" ? deleteCategory : kind === "supplier" ? deleteSupplier : deleteBrand;
+  const noun = kind === "category" ? "category" : kind === "supplier" ? "supplier" : "brand";
 
   return (
     <Button

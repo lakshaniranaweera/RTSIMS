@@ -2,10 +2,10 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTransition } from "react";
-import { Package, FolderOpen, Truck } from "lucide-react";
+import { Package, FolderOpen, Truck, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ProductTab = "products" | "categories" | "suppliers";
+export type ProductTab = "products" | "categories" | "suppliers" | "brands";
 
 export function ProductTabs({ active }: { active: ProductTab }) {
   const router = useRouter();
@@ -26,6 +26,7 @@ export function ProductTabs({ active }: { active: ProductTab }) {
     { id: "products", label: "Items", icon: Package },
     { id: "categories", label: "Categories", icon: FolderOpen },
     { id: "suppliers", label: "Suppliers", icon: Truck },
+    { id: "brands", label: "Brands", icon: Tag },
   ];
 
   return (

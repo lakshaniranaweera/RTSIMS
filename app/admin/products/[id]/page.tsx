@@ -119,6 +119,7 @@ export default async function EditProductPage({
                 supplierId: product.supplierId,
                 location: product.location,
                 archived: product.archived,
+                fixedAsset: product.fixedAsset,
               }}
               categories={categories}
               suppliers={suppliers}

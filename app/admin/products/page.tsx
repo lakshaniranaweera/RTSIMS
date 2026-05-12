@@ -18,15 +18,17 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FolderOpen, Truck, Package, AlertTriangle, Clock } from "lucide-react";
+import { FolderOpen, Truck, Package, AlertTriangle, Clock, Tag } from "lucide-react";
 import { FilterBar } from "./filter-bar";
 import { ProductRowActions } from "./row-actions";
 import { AddCategoryDialog } from "./add-category-dialog";
 import { AddSupplierDialog } from "./add-supplier-dialog";
 import { AddProductDialog } from "./add-product-dialog";
+import { AddBrandDialog } from "./add-brand-dialog";
 import { TaxonomyDeleteButton } from "./taxonomy-row-actions";
 import { EditCategoryDialog } from "./edit-category-dialog";
 import { EditSupplierDialog } from "./edit-supplier-dialog";
+import { EditBrandDialog } from "./edit-brand-dialog";
 import { ProductTabs, type ProductTab } from "./tabs";
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", {
@@ -92,7 +94,7 @@ function StatCard({
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; categoryId?: string; showArchived?: string; tab?: string }>;
+  searchParams: Promise<{ q?: string; categoryId?: string; showArchived?: string; tab?: "categories" | "suppliers" | "brands" }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -105,7 +107,7 @@ export default async function ProductsPage({
   const categoryId = sp.categoryId ?? null;
   const showArchived = sp.showArchived === "true";
   const tab: ProductTab =
-    sp.tab === "categories" || sp.tab === "suppliers" ? sp.tab : "products";
+    sp.tab === "categories" || sp.tab === "suppliers" || sp.tab === "brands" ? sp.tab : "products";
 
   const where = {
     ...(q && { name: { contains: q, mode: "insensitive" as const } }),
@@ -113,7 +115,7 @@ export default async function ProductsPage({
     ...(!showArchived && { archived: false }),
   };
 
-  const [products, categoriesAll, suppliersAll, productCountByCategory, productCountBySupplier, totalProducts] =
+  const [products, categoriesAll, suppliersAll, brandsAll, productCountByCategory, productCountBySupplier, totalProducts] =
     await Promise.all([
       prisma.product.findMany({
         where,
@@ -125,6 +127,7 @@ export default async function ProductsPage({
       }),
       prisma.category.findMany({ orderBy: { name: "asc" } }),
       prisma.supplier.findMany({ orderBy: { name: "asc" } }),
+      prisma.brand.findMany({ orderBy: { name: "asc" } }),
       prisma.product.groupBy({ by: ["categoryId"], _count: { _all: true } }),
       prisma.product.groupBy({ by: ["supplierId"], _count: { _all: true } }),
       prisma.product.count({ where: { archived: false } }),
@@ -194,13 +197,14 @@ export default async function ProductsPage({
                         <TableHead className="text-right">Min</TableHead>
                         <TableHead>Supplier</TableHead>
                         <TableHead>Expiry</TableHead>
+                        <TableHead>Fixed Asset</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {products.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
+                          <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
                             No products match the filters.
                           </TableCell>
                         </TableRow>
@@ -259,6 +263,13 @@ export default async function ProductsPage({
                                       </Badge>
                                     )}
                                   </span>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {p.fixedAsset ? (
+                                  <Badge className="bg-violet-500 text-white">Yes</Badge>
                                 ) : (
                                   <span className="text-muted-foreground">—</span>
                                 )}
@@ -334,6 +345,63 @@ export default async function ProductsPage({
                           </TableRow>
                         );
                       })
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </section>
+        )}
+
+        {/* ═══════════════════ BRANDS TAB ═══════════════════ */}
+        {tab === "brands" && (
+          <section className="space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold">Brands</h2>
+                <p className="text-sm text-muted-foreground">
+                  Manage product brands for easier identification and reporting.
+                </p>
+              </div>
+              <AddBrandDialog />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-1 max-w-xs">
+              <StatCard label="Total Brands" value={brandsAll.length} icon={Tag} tone="purple" />
+            </div>
+
+            <Card>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Slug</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {brandsAll.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-sm text-muted-foreground py-6">
+                          No brands yet.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      brandsAll.map((b) => (
+                        <TableRow key={b.id}>
+                          <TableCell className="font-medium">{b.name}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            <code className="text-xs">{b.slug}</code>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="inline-flex items-center gap-2">
+                              <EditBrandDialog brand={{ id: b.id, name: b.name }} />
+                              <TaxonomyDeleteButton id={b.id} kind="brand" inUse={0} />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
                     )}
                   </TableBody>
                 </Table>

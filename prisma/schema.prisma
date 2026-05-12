@@ -135,6 +135,12 @@ model Category {
   products Product[]
 }
 
+model Brand {
+  id   String @id @default(cuid())
+  name String @unique
+  slug String @unique
+}
+
 model Supplier {
   id          String  @id @default(cuid())
   name        String
@@ -162,6 +168,7 @@ model Product {
   supplierId   String?
   imageUrl     String?
   archived     Boolean   @default(false)
+  fixedAsset   Boolean   @default(false)
   location     ProductLocation @default(STORE)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt

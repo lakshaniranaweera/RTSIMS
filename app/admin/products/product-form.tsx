@@ -34,6 +34,7 @@ type Defaults = {
   supplierId?: string | null;
   location?: "OFFICE" | "STORE";
   archived?: boolean;
+  fixedAsset?: boolean;
 };
 
 function dateInput(d: Date | null | undefined): string {
@@ -284,6 +285,22 @@ export function ProductForm({
         {fe.deliveryDate?.[0] && (
           <p className="text-xs text-destructive">{fe.deliveryDate[0]}</p>
         )}
+      </div>
+
+      <div className="grid gap-1.5">
+        <Label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            name="fixedAsset"
+            defaultChecked={defaults.fixedAsset ?? false}
+            disabled={pending}
+            className="size-4"
+          />
+          Fixed Asset
+        </Label>
+        <p className="text-xs text-muted-foreground">
+          Mark this item as a fixed asset (e.g. equipment, furniture).
+        </p>
       </div>
 
       {mode === "edit" && (
