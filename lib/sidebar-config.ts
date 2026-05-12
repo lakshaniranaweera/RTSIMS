@@ -10,7 +10,6 @@ import {
   Truck,
   Tags,
   Search,
-  ShoppingCart,
   Bell,
   ShieldCheck,
   type LucideIcon,
@@ -26,7 +25,36 @@ export type SidebarItem = {
   group: "Admin" | "Stores" | "Staff" | "System";
   /** Optional human-readable description, used in the permission management UI. */
   description?: string;
+  /** If set, the item is visible when the user has ANY of these permission keys (overrides `key`). */
+  requiresAny?: string[];
 };
+
+/** Feature permissions that are not surfaced as sidebar items but are gated independently. */
+export const EXTRA_PERMISSIONS: Array<{
+  key: string;
+  label: string;
+  group: string;
+  description: string;
+}> = [
+  {
+    key: "requests.form",
+    label: "Submit Request Form",
+    group: "Requests",
+    description: "Create new item requests.",
+  },
+  {
+    key: "requests.pending",
+    label: "Process Pending Requests",
+    group: "Requests",
+    description: "Accept, advance, dispatch, and review returns.",
+  },
+  {
+    key: "requests.history",
+    label: "View Request History",
+    group: "Requests",
+    description: "Browse all historical requests.",
+  },
+];
 
 /** Single source of truth for sidebar items + the permission keys that gate them. */
 export const SIDEBAR_ITEMS: SidebarItem[] = [
@@ -34,7 +62,15 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
   { key: "menu.dashboard.admin", label: "Dashboard", href: "/admin", icon: LayoutDashboard, group: "Admin", description: "Admin company overview." },
   { key: "menu.employees", label: "Employees", href: "/admin/employees", icon: Users, group: "Admin", description: "Manage employee accounts." },
   { key: "menu.products", label: "Products", href: "/admin/products", icon: Boxes, group: "Admin", description: "Company-wide product catalogue." },
-  { key: "menu.requests.admin", label: "Requests", href: "/admin/requests", icon: ClipboardList, group: "Admin", description: "Review & approve all requests." },
+  {
+    key: "menu.requests.admin",
+    label: "Requests",
+    href: "/admin/requests",
+    icon: ClipboardList,
+    group: "Admin",
+    description: "Submit, process, and review requests.",
+    requiresAny: ["requests.form", "requests.pending", "requests.history"],
+  },
   { key: "menu.reports", label: "Reports", href: "/admin/reports", icon: FileBarChart, group: "Admin", description: "Usage, inventory, delivery reports." },
 
   // Stores
@@ -46,8 +82,6 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
 
   // Staff
   { key: "menu.browse", label: "Browse", href: "/staff", icon: Search, group: "Staff", description: "Browse the catalogue." },
-  { key: "menu.cart", label: "Request Cart", href: "/staff/cart", icon: ShoppingCart, group: "Staff", description: "Items the staff member is about to request." },
-  { key: "menu.requests.staff", label: "My Requests", href: "/staff/requests", icon: ClipboardList, group: "Staff", description: "Status of past requests." },
 
   // System (visible to all by default — all roles get notifications)
   { key: "menu.notifications", label: "Notifications", href: "/notifications", icon: Bell, group: "System", description: "Notification centre." },
@@ -66,6 +100,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<"ADMIN" | "STORES" | "STAFF", stri
     "menu.reports",
     "menu.notifications",
     "permissions.manage",
+    "requests.form",
+    "requests.pending",
+    "requests.history",
   ],
   STORES: [
     "menu.dashboard.stores",
@@ -74,11 +111,15 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<"ADMIN" | "STORES" | "STAFF", stri
     "menu.suppliers",
     "menu.categories",
     "menu.notifications",
+    "menu.requests.admin",
+    "requests.pending",
+    "requests.history",
   ],
   STAFF: [
     "menu.browse",
-    "menu.cart",
-    "menu.requests.staff",
     "menu.notifications",
+    "menu.requests.admin",
+    "requests.form",
+    "requests.history",
   ],
 };

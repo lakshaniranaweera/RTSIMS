@@ -22,11 +22,23 @@ enum Role {
 
 enum RequestStatus {
   PENDING
-  APPROVED
+  ACCEPTED
   PACKING
-  PACKED
-  DELIVERED
+  READY_TO_DELIVER
+  SENT
+  RECEIVED
   REJECTED
+}
+
+enum ReturnStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum ItemCondition {
+  GOOD
+  DAMAGED
 }
 
 enum PermissionEffect {
@@ -55,8 +67,11 @@ model User {
 
   sessions           Session[]
   requests           Request[]
+  requestsProcessed  Request[]        @relation("RequestProcessor")
   cart               RequestCart?
   requestEvents      RequestEvent[]
+  returnsInitiated   ReturnRequest[]  @relation("ReturnInitiator")
+  returnsReviewed    ReturnRequest[]  @relation("ReturnReviewer")
   notifications      Notification[]
   auditLogs          AuditLog[]
   productLogs        ProductLog[]
@@ -111,11 +126,11 @@ model UserPermission {
 
 // Refresh-token store (separate from Auth.js JWT session strategy)
 model Session {
-  id           String   @id @default(cuid())
-  refreshToken String   @unique
+  id           String    @id @default(cuid())
+  refreshToken String    @unique
   userId       String
   expiresAt    DateTime
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
   revokedAt    DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -139,10 +154,12 @@ model Brand {
   id   String @id @default(cuid())
   name String @unique
   slug String @unique
+
+  requests Request[]
 }
 
 model Supplier {
-  id          String  @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
   contactName String?
   email       String?
@@ -156,26 +173,28 @@ model Supplier {
 }
 
 model Product {
-  id           String    @id @default(cuid())
+  id           String          @id @default(cuid())
   name         String
   description  String?
   categoryId   String
-  qty          Int       @default(0)
-  minStock     Int       @default(0)
+  qty          Int             @default(0)
+  minStock     Int             @default(0)
   productDate  DateTime?
   expiryDate   DateTime?
   deliveryDate DateTime?
   supplierId   String?
   imageUrl     String?
-  archived     Boolean   @default(false)
-  fixedAsset   Boolean   @default(false)
+  archived     Boolean         @default(false)
+  fixedAsset   Boolean         @default(false)
   location     ProductLocation @default(STORE)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
-  category     Category      @relation(fields: [categoryId], references: [id])
-  supplier     Supplier?     @relation(fields: [supplierId], references: [id])
+  category     Category       @relation(fields: [categoryId], references: [id])
+  supplier     Supplier?      @relation(fields: [supplierId], references: [id])
   requestItems RequestItem[]
+  returnItems  ReturnItem[]
+  damagedStock DamagedStock[]
   cartItems    CartItem[]
   logs         ProductLog[]
 
@@ -202,7 +221,7 @@ model RequestCart {
 }
 
 model CartItem {
-  id        String @id @default(cuid())
+  id        String   @id @default(cuid())
   cartId    String
   productId String
   qty       Int
@@ -216,20 +235,31 @@ model CartItem {
 }
 
 model Request {
-  id        String        @id @default(cuid())
-  staffId   String
-  status    RequestStatus @default(PENDING)
-  note      String?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  staffId        String
+  status         RequestStatus @default(PENDING)
+  activationName String
+  jobNumber      String?
+  brandId        String?
+  clientName     String?
+  vehicleNumber  String?
+  processedById  String?
+  note           String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  staff  User           @relation(fields: [staffId], references: [id])
-  items  RequestItem[]
-  events RequestEvent[]
+  staff       User            @relation(fields: [staffId], references: [id])
+  processedBy User?           @relation("RequestProcessor", fields: [processedById], references: [id])
+  brand       Brand?          @relation(fields: [brandId], references: [id])
+  items       RequestItem[]
+  events      RequestEvent[]
+  returns     ReturnRequest[]
 
   @@index([staffId])
   @@index([status])
   @@index([createdAt])
+  @@index([brandId])
+  @@index([processedById])
 }
 
 model RequestItem {
@@ -259,6 +289,55 @@ model RequestEvent {
   @@index([requestId])
   @@index([actorId])
   @@index([timestamp])
+}
+
+model ReturnRequest {
+  id            String       @id @default(cuid())
+  requestId     String
+  initiatedById String
+  reviewedById  String?
+  status        ReturnStatus @default(PENDING)
+  note          String?
+  reason        String?
+  createdAt     DateTime     @default(now())
+  reviewedAt    DateTime?
+
+  request     Request      @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  initiatedBy User         @relation("ReturnInitiator", fields: [initiatedById], references: [id])
+  reviewedBy  User?        @relation("ReturnReviewer", fields: [reviewedById], references: [id])
+  items       ReturnItem[]
+
+  @@index([requestId])
+  @@index([status])
+  @@index([initiatedById])
+}
+
+model ReturnItem {
+  id              String        @id @default(cuid())
+  returnRequestId String
+  productId       String
+  qty             Int
+  condition       ItemCondition
+
+  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id])
+
+  @@index([returnRequestId])
+  @@index([productId])
+}
+
+model DamagedStock {
+  id           String   @id @default(cuid())
+  productId    String
+  qty          Int
+  returnItemId String?
+  note         String?
+  createdAt    DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@index([createdAt])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

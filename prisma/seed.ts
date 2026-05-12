@@ -1,7 +1,7 @@
 import { PrismaClient, Role, PermissionEffect } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
-import { SIDEBAR_ITEMS, DEFAULT_ROLE_PERMISSIONS } from "../lib/sidebar-config";
+import { SIDEBAR_ITEMS, EXTRA_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS } from "../lib/sidebar-config";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -33,16 +33,30 @@ async function main() {
   ]);
 
   // ─── Permissions ────────────────────────────────────────────────────────────
+  const ALL_PERMISSIONS = [
+    ...SIDEBAR_ITEMS.map((i) => ({
+      key: i.key,
+      label: i.label,
+      group: i.group as string,
+      description: i.description ?? null,
+    })),
+    ...EXTRA_PERMISSIONS.map((p) => ({
+      key: p.key,
+      label: p.label,
+      group: p.group,
+      description: p.description,
+    })),
+  ];
   const permissions = await Promise.all(
-    SIDEBAR_ITEMS.map((item) =>
+    ALL_PERMISSIONS.map((item) =>
       prisma.permission.upsert({
         where: { key: item.key },
-        update: { label: item.label, group: item.group, description: item.description ?? null },
+        update: { label: item.label, group: item.group, description: item.description },
         create: {
           key: item.key,
           label: item.label,
           group: item.group,
-          description: item.description ?? null,
+          description: item.description,
         },
       }),
     ),

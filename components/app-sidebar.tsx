@@ -27,7 +27,10 @@ export async function AppSidebar() {
   if (!session?.user?.id) redirect("/login");
 
   const perms = await getEffectivePermissions(session.user.id);
-  const visible = SIDEBAR_ITEMS.filter((item) => perms.has(item.key)).map(
+  const visible = SIDEBAR_ITEMS.filter((item) => {
+    if (item.requiresAny) return item.requiresAny.some((k) => perms.has(k));
+    return perms.has(item.key);
+  }).map(
     (item) => {
       const Icon = item.icon;
       return {
