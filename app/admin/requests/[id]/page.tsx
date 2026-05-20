@@ -74,10 +74,11 @@ export default async function RequestDetailPage({
   if (!req) notFound();
 
   const isOwner = req.staffId === userId;
-  const canPending = perms.has("requests.pending");
+  const canApprove = perms.has("requests.approve");
+  const canFulfill = perms.has("requests.fulfill");
   const canHistory = perms.has("requests.history");
 
-  if (!canPending && !canHistory && !isOwner) {
+  if (!canApprove && !canFulfill && !canHistory && !isOwner) {
     redirect("/admin/requests");
   }
 
@@ -92,6 +93,11 @@ export default async function RequestDetailPage({
       );
     }
   }
+  const totalRemaining = req.items.reduce(
+    (sum, it) =>
+      sum + Math.max(0, it.qty - (totalReturnedQtyByProduct.get(it.productId) ?? 0)),
+    0,
+  );
 
   return (
     <AppShell title="Request">
@@ -130,8 +136,14 @@ export default async function RequestDetailPage({
                 <dd className="font-medium">{req.brand?.name ?? "—"}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Vehicle number</dt>
-                <dd className="font-medium">{req.vehicleNumber ?? "—"}</dd>
+                <dt className="text-muted-foreground">Vehicle number(s)</dt>
+                <dd className="font-medium">
+                  {req.vehicleNumber
+                    ? req.vehicleNumber2
+                      ? `${req.vehicleNumber}, ${req.vehicleNumber2}`
+                      : req.vehicleNumber
+                    : "—"}
+                </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Processed by</dt>
@@ -144,25 +156,25 @@ export default async function RequestDetailPage({
             </dl>
 
             <div className="flex flex-wrap gap-2 border-t pt-4">
-              {canPending && req.status === "PENDING" && (
+              {canApprove && req.status === "PENDING" && (
                 <>
                   <AcceptButton id={req.id} />
                   <RejectButton id={req.id} />
                 </>
               )}
-              {canPending && req.status === "ACCEPTED" && (
+              {canFulfill && req.status === "ACCEPTED" && (
                 <StartPackingButton id={req.id} />
               )}
-              {canPending && req.status === "PACKING" && (
+              {canFulfill && req.status === "PACKING" && (
                 <MarkReadyButton id={req.id} />
               )}
-              {canPending && req.status === "READY_TO_DELIVER" && (
+              {canFulfill && req.status === "READY_TO_DELIVER" && (
                 <MarkSentDialog id={req.id} />
               )}
               {isOwner && req.status === "SENT" && (
                 <MarkReceivedButton id={req.id} />
               )}
-              {isOwner && req.status === "RECEIVED" && !hasOpenReturn && (
+              {isOwner && req.status === "RECEIVED" && !hasOpenReturn && totalRemaining > 0 && (
                 <Button
                   render={<Link href={`/admin/requests/${req.id}/returns/new`} />}
                   nativeButton={false}
@@ -171,6 +183,11 @@ export default async function RequestDetailPage({
                 >
                   Open return request
                 </Button>
+              )}
+              {isOwner && req.status === "RECEIVED" && !hasOpenReturn && totalRemaining === 0 && (
+                <span className="text-sm text-muted-foreground">
+                  All items returned.
+                </span>
               )}
               {isOwner && req.status === "RECEIVED" && hasOpenReturn && (
                 <span className="text-sm text-muted-foreground">
@@ -193,21 +210,29 @@ export default async function RequestDetailPage({
                   <TableHead className="text-right">Requested</TableHead>
                   <TableHead className="text-right">Current stock</TableHead>
                   <TableHead className="text-right">Returned</TableHead>
+                  <TableHead className="text-right">Remaining</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {req.items.map((it) => (
-                  <TableRow key={it.id}>
-                    <TableCell className="font-medium">{it.product.name}</TableCell>
-                    <TableCell className="text-right tabular-nums">{it.qty}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {it.product.qty}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {totalReturnedQtyByProduct.get(it.productId) ?? 0}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {req.items.map((it) => {
+                  const returned = totalReturnedQtyByProduct.get(it.productId) ?? 0;
+                  const remaining = Math.max(0, it.qty - returned);
+                  return (
+                    <TableRow key={it.id}>
+                      <TableCell className="font-medium">{it.product.name}</TableCell>
+                      <TableCell className="text-right tabular-nums">{it.qty}</TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {it.product.qty}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {returned}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums font-medium">
+                        {remaining}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>

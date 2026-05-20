@@ -28,13 +28,41 @@ export default async function NewReturnPage({
       items: {
         include: { product: { select: { id: true, name: true } } },
       },
-      returns: { where: { status: "PENDING" }, select: { id: true } },
+      returns: {
+        where: { status: { in: ["PENDING", "ACCEPTED"] } },
+        select: {
+          status: true,
+          items: { select: { productId: true, qty: true } },
+        },
+      },
     },
   });
   if (!req) notFound();
   if (req.staffId !== userId) redirect(`/admin/requests/${id}`);
   if (req.status !== "RECEIVED") redirect(`/admin/requests/${id}`);
-  if (req.returns.length > 0) redirect(`/admin/requests/${id}`);
+  // If a PENDING return already exists, sequential rule blocks opening another.
+  if (req.returns.some((r) => r.status === "PENDING")) redirect(`/admin/requests/${id}`);
+
+  // Compute remaining returnable qty per product:
+  //   remaining = original − Σ qty in ACCEPTED returns (PENDING already blocks here)
+  const remainingByProduct = new Map<string, number>(
+    req.items.map((i) => [i.productId, i.qty]),
+  );
+  for (const ret of req.returns) {
+    for (const ri of ret.items) {
+      const cur = remainingByProduct.get(ri.productId) ?? 0;
+      remainingByProduct.set(ri.productId, cur - ri.qty);
+    }
+  }
+
+  const lines = req.items
+    .map((i) => ({
+      productId: i.productId,
+      productName: i.product.name,
+      requestedQty: i.qty,
+      remainingQty: Math.max(0, remainingByProduct.get(i.productId) ?? 0),
+    }))
+    .filter((l) => l.remainingQty > 0);
 
   return (
     <AppShell title="Open return">
@@ -52,18 +80,17 @@ export default async function NewReturnPage({
             <p className="text-sm text-muted-foreground">
               Adjust quantities and mark each item as Good or Damaged. Good items will
               be added back to stock once accepted; damaged items will be logged
-              separately.
+              separately. You can submit multiple partial returns over time.
             </p>
           </CardHeader>
           <CardContent>
-            <ReturnForm
-              requestId={req.id}
-              items={req.items.map((i) => ({
-                productId: i.productId,
-                productName: i.product.name,
-                requestedQty: i.qty,
-              }))}
-            />
+            {lines.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                All items from this request have already been returned.
+              </p>
+            ) : (
+              <ReturnForm requestId={req.id} items={lines} />
+            )}
           </CardContent>
         </Card>
       </div>

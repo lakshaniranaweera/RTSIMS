@@ -51,7 +51,7 @@ export default async function ReturnReviewPage({
   });
   if (!ret) notFound();
 
-  const canReview = perms.has("requests.pending");
+  const canReview = perms.has("requests.fulfill");
   const isOwner = ret.initiatedById === session.user.id;
   if (!canReview && !isOwner && !perms.has("requests.history")) {
     redirect("/admin/requests");

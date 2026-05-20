@@ -243,6 +243,7 @@ model Request {
   brandId        String?
   clientName     String?
   vehicleNumber  String?
+  vehicleNumber2 String?
   processedById  String?
   note           String?
   createdAt      DateTime      @default(now())

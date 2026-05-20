@@ -4,11 +4,6 @@ import {
   Boxes,
   ClipboardList,
   FileBarChart,
-  Warehouse,
-  Package,
-  PackageCheck,
-  Truck,
-  Tags,
   Search,
   Bell,
   ShieldCheck,
@@ -22,7 +17,7 @@ export type SidebarItem = {
   href: string;
   icon: LucideIcon;
   /** UI grouping for the sidebar. */
-  group: "Admin" | "Stores" | "Staff" | "System";
+  group: "Admin" | "Staff" | "System";
   /** Optional human-readable description, used in the permission management UI. */
   description?: string;
   /** If set, the item is visible when the user has ANY of these permission keys (overrides `key`). */
@@ -43,10 +38,16 @@ export const EXTRA_PERMISSIONS: Array<{
     description: "Create new item requests.",
   },
   {
-    key: "requests.pending",
-    label: "Process Pending Requests",
+    key: "requests.approve",
+    label: "Approve / Reject Requests",
     group: "Requests",
-    description: "Accept, advance, dispatch, and review returns.",
+    description: "Accept or reject pending requests.",
+  },
+  {
+    key: "requests.fulfill",
+    label: "Fulfill Requests",
+    group: "Requests",
+    description: "Pack, mark ready, dispatch requests, and review returns.",
   },
   {
     key: "requests.history",
@@ -69,16 +70,9 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     icon: ClipboardList,
     group: "Admin",
     description: "Submit, process, and review requests.",
-    requiresAny: ["requests.form", "requests.pending", "requests.history"],
+    requiresAny: ["requests.form", "requests.approve", "requests.fulfill", "requests.history"],
   },
   { key: "menu.reports", label: "Reports", href: "/admin/reports", icon: FileBarChart, group: "Admin", description: "Usage, inventory, delivery reports." },
-
-  // Stores
-  { key: "menu.dashboard.stores", label: "Stores Dashboard", href: "/stores", icon: Warehouse, group: "Stores", description: "Stores team overview." },
-  { key: "menu.inventory", label: "Inventory", href: "/stores/inventory", icon: Package, group: "Stores", description: "Stock counts, expiry, low-stock." },
-  { key: "menu.packing", label: "Packing Queue", href: "/stores/packing", icon: PackageCheck, group: "Stores", description: "Approved requests to pack & deliver." },
-  { key: "menu.suppliers", label: "Suppliers", href: "/stores/suppliers", icon: Truck, group: "Stores", description: "Supplier directory." },
-  { key: "menu.categories", label: "Categories", href: "/stores/categories", icon: Tags, group: "Stores", description: "Product category taxonomy." },
 
   // Staff
   { key: "menu.browse", label: "Browse", href: "/staff", icon: Search, group: "Staff", description: "Browse the catalogue." },
@@ -101,18 +95,14 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<"ADMIN" | "STORES" | "STAFF", stri
     "menu.notifications",
     "permissions.manage",
     "requests.form",
-    "requests.pending",
+    "requests.approve",
+    "requests.fulfill",
     "requests.history",
   ],
   STORES: [
-    "menu.dashboard.stores",
-    "menu.inventory",
-    "menu.packing",
-    "menu.suppliers",
-    "menu.categories",
     "menu.notifications",
     "menu.requests.admin",
-    "requests.pending",
+    "requests.fulfill",
     "requests.history",
   ],
   STAFF: [

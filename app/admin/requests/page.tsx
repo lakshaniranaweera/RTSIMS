@@ -13,9 +13,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { RequestsTabs, type RequestsTab } from "./tabs";
 import { RequestForm } from "./request-form";
 import { StatusBadge } from "./status";
+import {
+  AcceptButton,
+  RejectButton,
+  StartPackingButton,
+  MarkReadyButton,
+  MarkSentDialog,
+  MarkReceivedButton,
+} from "./status-actions";
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", {
   year: "numeric",
@@ -35,7 +44,9 @@ export default async function RequestsPage({
 
   const perms = await getEffectivePermissions(session.user.id);
   const canForm = perms.has("requests.form");
-  const canPending = perms.has("requests.pending");
+  const canApprove = perms.has("requests.approve");
+  const canFulfill = perms.has("requests.fulfill");
+  const canPending = canApprove || canFulfill;
   const canHistory = perms.has("requests.history");
 
   if (!canForm && !canPending && !canHistory) {
@@ -61,7 +72,13 @@ export default async function RequestsPage({
         <RequestsTabs active={active} available={available} />
 
         {active === "form" && canForm && <FormSection />}
-        {active === "pending" && canPending && <PendingSection />}
+        {active === "pending" && canPending && (
+          <PendingSection
+            userId={session.user.id}
+            canApprove={canApprove}
+            canFulfill={canFulfill}
+          />
+        )}
         {active === "history" && canHistory && (
           <HistorySection userId={session.user.id} canViewAll={canPending} />
         )}
@@ -93,7 +110,15 @@ async function FormSection() {
   );
 }
 
-async function PendingSection() {
+async function PendingSection({
+  userId,
+  canApprove,
+  canFulfill,
+}: {
+  userId: string;
+  canApprove: boolean;
+  canFulfill: boolean;
+}) {
   const requests = await prisma.request.findMany({
     where: {
       status: { notIn: ["RECEIVED", "REJECTED"] },
@@ -101,6 +126,7 @@ async function PendingSection() {
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
+      staffId: true,
       status: true,
       activationName: true,
       jobNumber: true,
@@ -132,45 +158,82 @@ async function PendingSection() {
                 <TableHead>Vehicle</TableHead>
                 <TableHead>Processed by</TableHead>
                 <TableHead>Created</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {requests.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
+                  <TableCell colSpan={10} className="text-center text-sm text-muted-foreground py-8">
                     Nothing pending.
                   </TableCell>
                 </TableRow>
               ) : (
-                requests.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">
-                      <Link href={`/admin/requests/${r.id}`} className="hover:underline">
-                        {r.activationName}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {r.staff.name}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {r.jobNumber ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {r.clientName ?? "—"}
-                    </TableCell>
-                    <TableCell className="tabular-nums">{r._count.items}</TableCell>
-                    <TableCell><StatusBadge status={r.status} /></TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {r.vehicleNumber ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {r.processedBy?.name ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-xs">
-                      {dateFmt.format(r.createdAt)}
-                    </TableCell>
-                  </TableRow>
-                ))
+                requests.map((r) => {
+                  const isOwner = r.staffId === userId;
+                  return (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">
+                        <Link
+                          href={`/admin/requests/${r.id}`}
+                          className="text-primary underline-offset-2 hover:underline"
+                        >
+                          {r.activationName}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {r.staff.name}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {r.jobNumber ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {r.clientName ?? "—"}
+                      </TableCell>
+                      <TableCell className="tabular-nums">{r._count.items}</TableCell>
+                      <TableCell><StatusBadge status={r.status} /></TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {r.vehicleNumber ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {r.processedBy?.name ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">
+                        {dateFmt.format(r.createdAt)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap justify-end gap-1.5">
+                          {canApprove && r.status === "PENDING" && (
+                            <>
+                              <AcceptButton id={r.id} />
+                              <RejectButton id={r.id} />
+                            </>
+                          )}
+                          {canFulfill && r.status === "ACCEPTED" && (
+                            <StartPackingButton id={r.id} />
+                          )}
+                          {canFulfill && r.status === "PACKING" && (
+                            <MarkReadyButton id={r.id} />
+                          )}
+                          {canFulfill && r.status === "READY_TO_DELIVER" && (
+                            <MarkSentDialog id={r.id} />
+                          )}
+                          {isOwner && r.status === "SENT" && (
+                            <MarkReceivedButton id={r.id} />
+                          )}
+                          <Button
+                            render={<Link href={`/admin/requests/${r.id}`} />}
+                            nativeButton={false}
+                            size="sm"
+                            variant="outline"
+                          >
+                            View
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -193,12 +256,20 @@ async function HistorySection({
     take: 200,
     select: {
       id: true,
+      staffId: true,
       status: true,
       activationName: true,
       jobNumber: true,
       clientName: true,
       createdAt: true,
       staff: { select: { name: true } },
+      items: { select: { productId: true, qty: true } },
+      returns: {
+        select: {
+          status: true,
+          items: { select: { productId: true, qty: true } },
+        },
+      },
       _count: { select: { items: true, returns: true } },
     },
   });
@@ -221,42 +292,95 @@ async function HistorySection({
                 <TableHead>Returns</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {requests.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
+                  <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
                     No requests yet.
                   </TableCell>
                 </TableRow>
               ) : (
-                requests.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">
-                      <Link href={`/admin/requests/${r.id}`} className="hover:underline">
-                        {r.activationName}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {r.staff.name}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {r.jobNumber ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {r.clientName ?? "—"}
-                    </TableCell>
-                    <TableCell className="tabular-nums">{r._count.items}</TableCell>
-                    <TableCell className="tabular-nums">
-                      {r._count.returns > 0 ? r._count.returns : "—"}
-                    </TableCell>
-                    <TableCell><StatusBadge status={r.status} /></TableCell>
-                    <TableCell className="text-muted-foreground text-xs">
-                      {dateFmt.format(r.createdAt)}
-                    </TableCell>
-                  </TableRow>
-                ))
+                requests.map((r) => {
+                  const isOwner = r.staffId === userId;
+                  const hasOpenReturn = r.returns.some((ret) => ret.status === "PENDING");
+                  // remaining = original − Σ ACCEPTED return qty (per product), summed
+                  const acceptedReturnedByProduct = new Map<string, number>();
+                  for (const ret of r.returns) {
+                    if (ret.status !== "ACCEPTED") continue;
+                    for (const it of ret.items) {
+                      acceptedReturnedByProduct.set(
+                        it.productId,
+                        (acceptedReturnedByProduct.get(it.productId) ?? 0) + it.qty,
+                      );
+                    }
+                  }
+                  const totalRemaining = r.items.reduce(
+                    (sum, it) =>
+                      sum + Math.max(0, it.qty - (acceptedReturnedByProduct.get(it.productId) ?? 0)),
+                    0,
+                  );
+
+                  return (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">
+                        <Link
+                          href={`/admin/requests/${r.id}`}
+                          className="text-primary underline-offset-2 hover:underline"
+                        >
+                          {r.activationName}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {r.staff.name}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {r.jobNumber ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {r.clientName ?? "—"}
+                      </TableCell>
+                      <TableCell className="tabular-nums">{r._count.items}</TableCell>
+                      <TableCell className="tabular-nums">
+                        {r._count.returns > 0 ? r._count.returns : "—"}
+                      </TableCell>
+                      <TableCell><StatusBadge status={r.status} /></TableCell>
+                      <TableCell className="text-muted-foreground text-xs">
+                        {dateFmt.format(r.createdAt)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap justify-end gap-1.5">
+                          {isOwner && r.status === "SENT" && (
+                            <MarkReceivedButton id={r.id} />
+                          )}
+                          {isOwner &&
+                            r.status === "RECEIVED" &&
+                            !hasOpenReturn &&
+                            totalRemaining > 0 && (
+                              <Button
+                                render={<Link href={`/admin/requests/${r.id}/returns/new`} />}
+                                nativeButton={false}
+                                size="sm"
+                                variant="outline"
+                              >
+                                Open return
+                              </Button>
+                            )}
+                          <Button
+                            render={<Link href={`/admin/requests/${r.id}`} />}
+                            nativeButton={false}
+                            size="sm"
+                            variant="outline"
+                          >
+                            View
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

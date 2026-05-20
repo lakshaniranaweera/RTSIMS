@@ -132,7 +132,7 @@ export async function createRequest(
 async function transitionStatus(
   requestId: string,
   to: RequestStatus,
-  opts: { permissionKey?: string; reason?: string | null; vehicleNumber?: string | null; ownerOnly?: boolean } = {},
+  opts: { permissionKey?: string; reason?: string | null; vehicleNumber?: string | null; vehicleNumber2?: string | null; ownerOnly?: boolean } = {},
 ): Promise<ActionState> {
   const session = await auth();
   if (!session?.user?.id) return { ok: false, error: "Unauthorized" };
@@ -180,9 +180,15 @@ async function transitionStatus(
         status: RequestStatus;
         processedById?: string;
         vehicleNumber?: string;
+        vehicleNumber2?: string;
       } = { status: to };
       if (to === "ACCEPTED") updateData.processedById = userId;
-      if (to === "SENT") updateData.vehicleNumber = opts.vehicleNumber!.trim();
+      if (to === "SENT") {
+        updateData.vehicleNumber = opts.vehicleNumber!.trim();
+        if (opts.vehicleNumber2?.trim()) {
+          updateData.vehicleNumber2 = opts.vehicleNumber2.trim();
+        }
+      }
 
       await tx.request.update({ where: { id: requestId }, data: updateData });
 
@@ -207,7 +213,7 @@ async function transitionStatus(
 export async function acceptRequest(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, error: "Missing request id." };
-  return transitionStatus(id, "ACCEPTED", { permissionKey: "requests.pending" });
+  return transitionStatus(id, "ACCEPTED", { permissionKey: "requests.approve" });
 }
 
 export async function rejectRequest(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -215,29 +221,30 @@ export async function rejectRequest(_prev: ActionState, formData: FormData): Pro
   const reason = String(formData.get("reason") ?? "").trim();
   if (!id) return { ok: false, error: "Missing request id." };
   if (!reason) return { ok: false, error: "Rejection reason is required.", fieldErrors: { reason: ["Reason is required."] } };
-  return transitionStatus(id, "REJECTED", { permissionKey: "requests.pending", reason });
+  return transitionStatus(id, "REJECTED", { permissionKey: "requests.approve", reason });
 }
 
 export async function startPacking(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, error: "Missing request id." };
-  return transitionStatus(id, "PACKING", { permissionKey: "requests.pending" });
+  return transitionStatus(id, "PACKING", { permissionKey: "requests.fulfill" });
 }
 
 export async function markReadyToDeliver(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, error: "Missing request id." };
-  return transitionStatus(id, "READY_TO_DELIVER", { permissionKey: "requests.pending" });
+  return transitionStatus(id, "READY_TO_DELIVER", { permissionKey: "requests.fulfill" });
 }
 
 export async function markSent(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const id = String(formData.get("id") ?? "");
   const vehicleNumber = String(formData.get("vehicleNumber") ?? "").trim();
+  const vehicleNumber2 = String(formData.get("vehicleNumber2") ?? "").trim() || null;
   if (!id) return { ok: false, error: "Missing request id." };
   if (!vehicleNumber) {
     return { ok: false, error: "Vehicle number is required.", fieldErrors: { vehicleNumber: ["Required."] } };
   }
-  return transitionStatus(id, "SENT", { permissionKey: "requests.pending", vehicleNumber });
+  return transitionStatus(id, "SENT", { permissionKey: "requests.fulfill", vehicleNumber, vehicleNumber2 });
 }
 
 export async function markReceived(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -290,17 +297,35 @@ export async function createReturn(
       status: true,
       staffId: true,
       items: { select: { productId: true, qty: true } },
+      returns: {
+        where: { status: { in: [ReturnStatus.PENDING, ReturnStatus.ACCEPTED] } },
+        select: {
+          status: true,
+          items: { select: { productId: true, qty: true } },
+        },
+      },
     },
   });
   if (!req) return { ok: false, error: "Request not found." };
   if (req.staffId !== userId) return { ok: false, error: "Only the requester can open a return." };
   if (req.status !== "RECEIVED") return { ok: false, error: "Returns can only be opened on received requests." };
 
-  const origByProduct = new Map(req.items.map((i) => [i.productId, i.qty]));
+  // Compute remaining returnable qty per product:
+  //   remaining = original − Σ qty in ACCEPTED returns − Σ qty in PENDING returns
+  const remainingByProduct = new Map(req.items.map((i) => [i.productId, i.qty]));
+  for (const ret of req.returns) {
+    for (const ri of ret.items) {
+      const cur = remainingByProduct.get(ri.productId) ?? 0;
+      remainingByProduct.set(ri.productId, cur - ri.qty);
+    }
+  }
   for (const it of items) {
-    const orig = origByProduct.get(it.productId) ?? 0;
-    if (it.qty > orig) {
-      return { ok: false, error: `Return qty for one item exceeds the original requested qty (${orig}).` };
+    const remaining = remainingByProduct.get(it.productId) ?? 0;
+    if (it.qty > remaining) {
+      return {
+        ok: false,
+        error: `Cannot return ${it.qty}. Only ${Math.max(0, remaining)} remaining returnable for one item.`,
+      };
     }
   }
 
@@ -326,7 +351,7 @@ export async function createReturn(
 }
 
 export async function acceptReturn(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { userId } = await requirePermission("requests.pending");
+  const { userId } = await requirePermission("requests.fulfill");
 
   const returnId = String(formData.get("returnId") ?? "");
   if (!returnId) return { ok: false, error: "Missing return id." };
@@ -381,7 +406,7 @@ export async function acceptReturn(_prev: ActionState, formData: FormData): Prom
 }
 
 export async function rejectReturn(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { userId } = await requirePermission("requests.pending");
+  const { userId } = await requirePermission("requests.fulfill");
 
   const returnId = String(formData.get("returnId") ?? "");
   const reason = String(formData.get("reason") ?? "").trim();

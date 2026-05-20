@@ -164,7 +164,7 @@ export function MarkSentDialog({ id }: { id: string }) {
         <form action={formAction} className="space-y-3">
           <input type="hidden" name="id" value={id} />
           <div className="grid gap-1.5">
-            <Label htmlFor="vehicleNumber">Vehicle number</Label>
+            <Label htmlFor="vehicleNumber">Vehicle number 1</Label>
             <Input
               id="vehicleNumber"
               name="vehicleNumber"
@@ -177,6 +177,15 @@ export function MarkSentDialog({ id }: { id: string }) {
                 {state.fieldErrors.vehicleNumber[0]}
               </p>
             )}
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="vehicleNumber2">Vehicle number 2 (optional)</Label>
+            <Input
+              id="vehicleNumber2"
+              name="vehicleNumber2"
+              disabled={pending}
+              placeholder="e.g. KA-01-CD-5678"
+            />
             <p className="text-xs text-muted-foreground">
               Stock will be decremented for all items in this request.
             </p>

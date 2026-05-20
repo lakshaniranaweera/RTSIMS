@@ -9,6 +9,7 @@ const HOME_BY_ROLE: Record<Role, string> = {
 };
 
 const ROUTE_RULES: Array<{ prefix: string; allow: Role[] }> = [
+  { prefix: "/admin/requests", allow: ["ADMIN", "STORES", "STAFF"] },
   { prefix: "/admin", allow: ["ADMIN"] },
   { prefix: "/stores", allow: ["ADMIN", "STORES"] },
   { prefix: "/staff", allow: ["STAFF"] },

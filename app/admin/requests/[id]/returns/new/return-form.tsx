@@ -27,6 +27,7 @@ type Item = {
   productId: string;
   productName: string;
   requestedQty: number;
+  remainingQty: number;
 };
 
 export function ReturnForm({
@@ -62,7 +63,7 @@ export function ReturnForm({
         <TableHeader>
           <TableRow>
             <TableHead>Product</TableHead>
-            <TableHead className="text-right">Originally requested</TableHead>
+            <TableHead className="text-right">Remaining to return</TableHead>
             <TableHead className="w-40">Return qty</TableHead>
             <TableHead className="w-40">Condition</TableHead>
           </TableRow>
@@ -72,19 +73,21 @@ export function ReturnForm({
             <TableRow key={line.productId}>
               <TableCell className="font-medium">{line.productName}</TableCell>
               <TableCell className="text-right tabular-nums text-muted-foreground">
-                {line.requestedQty}
+                <span className="font-medium text-foreground">{line.remainingQty}</span>
+                <span className="ml-1 text-xs">of {line.requestedQty}</span>
               </TableCell>
               <TableCell>
                 <Input
                   type="number"
                   min={0}
-                  max={line.requestedQty}
+                  max={line.remainingQty}
+                  placeholder={`0–${line.remainingQty}`}
                   value={line.qty}
                   onChange={(e) =>
                     setLines((ls) =>
                       ls.map((l, i) =>
                         i === idx
-                          ? { ...l, qty: Math.max(0, Math.min(line.requestedQty, Number(e.target.value) || 0)) }
+                          ? { ...l, qty: Math.max(0, Math.min(line.remainingQty, Number(e.target.value) || 0)) }
                           : l,
                       ),
                     )
