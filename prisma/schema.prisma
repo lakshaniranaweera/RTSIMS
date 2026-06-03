@@ -46,6 +46,12 @@ enum PermissionEffect {
   DENY
 }
 
+enum ActivationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 enum ProductLocation {
   OFFICE
   STORE
@@ -75,8 +81,11 @@ model User {
   notifications      Notification[]
   auditLogs          AuditLog[]
   productLogs        ProductLog[]
-  permissions        UserPermission[] @relation("UserPermissions")
-  grantedPermissions UserPermission[] @relation("PermissionGrantor")
+  permissions            UserPermission[] @relation("UserPermissions")
+  grantedPermissions     UserPermission[] @relation("PermissionGrantor")
+  activationsCreated     Activation[]     @relation("ActivationsCreated")
+  activationsReviewed    Activation[]     @relation("ActivationsReviewed")
+  activationFormsFilled  ActivationForm[] @relation("ActivationFormsFilled")
 
   @@index([role])
   @@index([deletedAt])
@@ -339,6 +348,47 @@ model DamagedStock {
 
   @@index([productId])
   @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Finance — Activations
+
+model Activation {
+  id           String           @id @default(cuid())
+  name         String
+  jobNumber    String
+  eventDate    DateTime
+  status       ActivationStatus @default(PENDING)
+  createdById  String
+  reviewedById String?
+  reviewNote   String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  createdBy  User             @relation("ActivationsCreated", fields: [createdById], references: [id])
+  reviewedBy User?            @relation("ActivationsReviewed", fields: [reviewedById], references: [id])
+  forms      ActivationForm[]
+
+  @@index([createdById])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ActivationForm {
+  id           String    @id @default(cuid())
+  activationId String
+  formNumber   Int
+  filled       Boolean   @default(false)
+  filledAt     DateTime?
+  filledById   String?
+  data         Json?
+  createdAt    DateTime  @default(now())
+
+  activation Activation @relation(fields: [activationId], references: [id], onDelete: Cascade)
+  filledBy   User?      @relation("ActivationFormsFilled", fields: [filledById], references: [id])
+
+  @@unique([activationId, formNumber])
+  @@index([activationId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

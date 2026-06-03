@@ -7,6 +7,8 @@ import {
   Search,
   Bell,
   ShieldCheck,
+  Banknote,
+  FileCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -17,7 +19,7 @@ export type SidebarItem = {
   href: string;
   icon: LucideIcon;
   /** UI grouping for the sidebar. */
-  group: "Admin" | "Staff" | "System";
+  group: "Admin" | "Staff" | "System" | "Finance";
   /** Optional human-readable description, used in the permission management UI. */
   description?: string;
   /** If set, the item is visible when the user has ANY of these permission keys (overrides `key`). */
@@ -55,6 +57,18 @@ export const EXTRA_PERMISSIONS: Array<{
     group: "Requests",
     description: "Browse all historical requests.",
   },
+  {
+    key: "finance.activation.create",
+    label: "Create Activations",
+    group: "Finance",
+    description: "Submit new activation requests.",
+  },
+  {
+    key: "finance.activation.approve",
+    label: "Approve / Reject Activations",
+    group: "Finance",
+    description: "Accept or reject pending activations.",
+  },
 ];
 
 /** Single source of truth for sidebar items + the permission keys that gate them. */
@@ -80,6 +94,26 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
   // System (visible to all by default — all roles get notifications)
   { key: "menu.notifications", label: "Notifications", href: "/notifications", icon: Bell, group: "System", description: "Notification centre." },
 
+  // Finance
+  {
+    key: "menu.finance.activation",
+    label: "Activation",
+    href: "/admin/finance/activation",
+    icon: Banknote,
+    group: "Finance",
+    description: "Create and track activations.",
+    requiresAny: ["finance.activation.create"],
+  },
+  {
+    key: "menu.finance.activation-requests",
+    label: "Activation Requests",
+    href: "/admin/finance/activation-requests",
+    icon: FileCheck,
+    group: "Finance",
+    description: "Review and approve activation requests.",
+    requiresAny: ["finance.activation.approve"],
+  },
+
   // Permission management (gated by permissions.manage)
   { key: "permissions.manage", label: "Manage Permissions", href: "/admin/permissions", icon: ShieldCheck, group: "System", description: "Grant or revoke menu items per role or per user." },
 ];
@@ -98,6 +132,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<"ADMIN" | "STORES" | "STAFF", stri
     "requests.approve",
     "requests.fulfill",
     "requests.history",
+    "menu.finance.activation",
+    "menu.finance.activation-requests",
+    "finance.activation.create",
+    "finance.activation.approve",
   ],
   STORES: [
     "menu.notifications",
@@ -111,5 +149,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<"ADMIN" | "STORES" | "STAFF", stri
     "menu.requests.admin",
     "requests.form",
     "requests.history",
+    "menu.finance.activation",
+    "finance.activation.create",
   ],
 };
