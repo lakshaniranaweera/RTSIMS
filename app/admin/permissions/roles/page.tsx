@@ -1,8 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Role } from "@prisma/client";
 import { auth } from "@/auth";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { SIDEBAR_ITEMS } from "@/lib/sidebar-config";
 import { AppShell } from "@/components/app-shell";
 import {
   Table,
@@ -13,100 +14,127 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toggleRolePermission } from "./actions";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { SlidersHorizontal } from "lucide-react";
+import { CreateRoleDialog, EditRoleDialog, DeleteRoleButton } from "./role-dialogs";
 
-const ROLES: Role[] = [Role.ADMIN, Role.STORES, Role.STAFF];
+const LANDING_OPTIONS = SIDEBAR_ITEMS.map((i) => ({ href: i.href, label: i.label }));
 
-export default async function RolesPermissionsPage() {
+export default async function RolesPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   if (!(await hasPermission(session.user.id, "permissions.manage"))) {
     redirect("/admin");
   }
 
-  const [permissions, rolePerms] = await Promise.all([
-    prisma.permission.findMany({ orderBy: [{ group: "asc" }, { label: "asc" }] }),
-    prisma.rolePermission.findMany({ select: { role: true, permissionId: true } }),
-  ]);
-
-  const granted = new Set(rolePerms.map((rp) => `${rp.role}:${rp.permissionId}`));
-
-  // Group permissions for readable rendering
-  const groups = new Map<string, typeof permissions>();
-  for (const p of permissions) {
-    const k = p.group ?? "Other";
-    const list = groups.get(k) ?? [];
-    list.push(p);
-    groups.set(k, list);
-  }
+  const roles = await prisma.role.findMany({
+    orderBy: [{ isSystem: "desc" }, { name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      landingPath: true,
+      isSystem: true,
+      _count: { select: { users: true, rolePermissions: true } },
+    },
+  });
 
   return (
-    <AppShell title="Permissions · By role">
-      <div className="space-y-6 max-w-5xl">
-        <p className="text-sm text-muted-foreground">
-          Toggle the cells to grant or revoke a permission for an entire role.
-          Per-user overrides take precedence — manage those under{" "}
-          <a className="underline" href="/admin/permissions/users">By user</a>.
-        </p>
+    <AppShell title="Permissions · Roles">
+      <div className="space-y-4 max-w-5xl">
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm text-muted-foreground">
+            Create roles and grant permissions per section. Per-user overrides take
+            precedence — manage those under{" "}
+            <Link className="underline" href="/admin/permissions/users">
+              By user
+            </Link>
+            .
+          </p>
+          <CreateRoleDialog landingOptions={LANDING_OPTIONS} />
+        </div>
 
-        {[...groups.entries()].map(([group, perms]) => (
-          <Card key={group}>
-            <CardHeader>
-              <CardTitle className="text-base">{group}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Roles</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Landing page</TableHead>
+                  <TableHead className="text-center">Users</TableHead>
+                  <TableHead className="text-center">Permissions</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {roles.length === 0 && (
                   <TableRow>
-                    <TableHead className="w-[40%]">Permission</TableHead>
-                    {ROLES.map((r) => (
-                      <TableHead key={r} className="text-center">
-                        {r}
-                      </TableHead>
-                    ))}
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      No roles yet. Create one to get started.
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {perms.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell>
-                        <div className="font-medium">{p.label}</div>
-                        <div className="text-xs text-muted-foreground">
-                          <code>{p.key}</code>
-                          {p.description ? ` · ${p.description}` : null}
-                        </div>
-                      </TableCell>
-                      {ROLES.map((r) => {
-                        const isOn = granted.has(`${r}:${p.id}`);
-                        return (
-                          <TableCell key={r} className="text-center">
-                            <form action={toggleRolePermission}>
-                              <input type="hidden" name="role" value={r} />
-                              <input type="hidden" name="permissionId" value={p.id} />
-                              <input type="hidden" name="grant" value={isOn ? "0" : "1"} />
-                              <button
-                                type="submit"
-                                aria-label={`${isOn ? "Revoke" : "Grant"} ${p.label} for ${r}`}
-                                className={
-                                  "inline-flex h-6 w-12 items-center justify-center rounded-md border text-xs font-medium transition-colors " +
-                                  (isOn
-                                    ? "bg-emerald-500 text-white border-emerald-600"
-                                    : "bg-muted text-muted-foreground hover:bg-muted/80")
-                                }
-                              >
-                                {isOn ? "ON" : "off"}
-                              </button>
-                            </form>
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        ))}
+                )}
+                {roles.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2 font-medium">
+                        {r.name}
+                        {r.isSystem && <Badge variant="outline">system</Badge>}
+                      </div>
+                      {r.description && (
+                        <div className="text-xs text-muted-foreground">{r.description}</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {r.landingPath ? <code>{r.landingPath}</code> : "Auto"}
+                    </TableCell>
+                    <TableCell className="text-center tabular-nums">
+                      {r._count.users}
+                    </TableCell>
+                    <TableCell className="text-center tabular-nums">
+                      {r._count.rolePermissions}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          render={<Link href={`/admin/permissions/roles/${r.id}`} />}
+                          nativeButton={false}
+                          size="sm"
+                        >
+                          <SlidersHorizontal />
+                          Permissions
+                        </Button>
+                        <EditRoleDialog
+                          role={{
+                            id: r.id,
+                            name: r.name,
+                            description: r.description,
+                            landingPath: r.landingPath,
+                          }}
+                          landingOptions={LANDING_OPTIONS}
+                        />
+                        <DeleteRoleButton
+                          id={r.id}
+                          name={r.name}
+                          disabled={r.isSystem || r._count.users > 0}
+                          disabledReason={
+                            r.isSystem
+                              ? "System roles cannot be deleted."
+                              : "Reassign users off this role first."
+                          }
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
     </AppShell>
   );

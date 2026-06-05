@@ -115,41 +115,5 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
   },
 
   // Permission management (gated by permissions.manage)
-  { key: "permissions.manage", label: "Manage Permissions", href: "/admin/permissions", icon: ShieldCheck, group: "System", description: "Grant or revoke menu items per role or per user." },
+  { key: "permissions.manage", label: "Manage Permissions", href: "/admin/permissions", icon: ShieldCheck, group: "System", description: "Create roles and grant or revoke permissions per role or per user." },
 ];
-
-/** Default role grants used at seed time and by the permission management defaults UI. */
-export const DEFAULT_ROLE_PERMISSIONS: Record<"ADMIN" | "STORES" | "STAFF", string[]> = {
-  ADMIN: [
-    "menu.dashboard.admin",
-    "menu.employees",
-    "menu.products",
-    "menu.requests.admin",
-    "menu.reports",
-    "menu.notifications",
-    "permissions.manage",
-    "requests.form",
-    "requests.approve",
-    "requests.fulfill",
-    "requests.history",
-    "menu.finance.activation",
-    "menu.finance.activation-requests",
-    "finance.activation.create",
-    "finance.activation.approve",
-  ],
-  STORES: [
-    "menu.notifications",
-    "menu.requests.admin",
-    "requests.fulfill",
-    "requests.history",
-  ],
-  STAFF: [
-    "menu.browse",
-    "menu.notifications",
-    "menu.requests.admin",
-    "requests.form",
-    "requests.history",
-    "menu.finance.activation",
-    "finance.activation.create",
-  ],
-};

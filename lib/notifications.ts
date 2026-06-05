@@ -1,5 +1,4 @@
 import "server-only";
-import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -30,8 +29,14 @@ export async function syncExpiryNotifications(): Promise<number> {
       },
       select: { id: true, name: true, expiryDate: true },
     }),
+    // "Admins" = users whose role grants the admin dashboard permission.
     prisma.user.findMany({
-      where: { deletedAt: null, role: Role.ADMIN },
+      where: {
+        deletedAt: null,
+        role: {
+          rolePermissions: { some: { permission: { key: "menu.dashboard.admin" } } },
+        },
+      },
       select: { id: true },
     }),
   ]);

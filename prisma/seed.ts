@@ -1,7 +1,7 @@
-import { PrismaClient, Role, PermissionEffect } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
-import { SIDEBAR_ITEMS, EXTRA_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS } from "../lib/sidebar-config";
+import { SIDEBAR_ITEMS, EXTRA_PERMISSIONS } from "../lib/sidebar-config";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -9,28 +9,25 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   const passwordHash = await bcrypt.hash("password123", 12);
 
-  const [admin, admin2, stores, staff] = await Promise.all([
-    prisma.user.upsert({
-      where: { email: "admin@example.com" },
-      update: {},
-      create: { email: "admin@example.com", name: "Admin User", passwordHash, role: Role.ADMIN },
-    }),
-    prisma.user.upsert({
-      where: { email: "admin2@example.com" },
-      update: {},
-      create: { email: "admin2@example.com", name: "Admin Two (limited)", passwordHash, role: Role.ADMIN },
-    }),
-    prisma.user.upsert({
-      where: { email: "stores@example.com" },
-      update: {},
-      create: { email: "stores@example.com", name: "Stores User", passwordHash, role: Role.STORES },
-    }),
-    prisma.user.upsert({
-      where: { email: "staff@example.com" },
-      update: {},
-      create: { email: "staff@example.com", name: "Staff User", passwordHash, role: Role.STAFF },
-    }),
-  ]);
+  // ─── Bootstrap role ─────────────────────────────────────────────────────────
+  // Start fresh: a single system "Administrator" role with every permission.
+  // Build out additional roles via the UI (Manage Permissions → Roles).
+  const adminRole = await prisma.role.upsert({
+    where: { name: "Administrator" },
+    update: { isSystem: true, landingPath: "/admin" },
+    create: {
+      name: "Administrator",
+      description: "Full access. Seeded bootstrap role.",
+      landingPath: "/admin",
+      isSystem: true,
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: "admin@example.com" },
+    update: { roleId: adminRole.id },
+    create: { email: "admin@example.com", name: "Admin User", passwordHash, roleId: adminRole.id },
+  });
 
   // ─── Permissions ────────────────────────────────────────────────────────────
   const ALL_PERMISSIONS = [
@@ -61,35 +58,12 @@ async function main() {
       }),
     ),
   );
-  const permByKey = new Map(permissions.map((p) => [p.key, p]));
-
-  // Default role grants
-  for (const role of [Role.ADMIN, Role.STORES, Role.STAFF] as const) {
-    const keys = DEFAULT_ROLE_PERMISSIONS[role];
-    for (const key of keys) {
-      const perm = permByKey.get(key);
-      if (!perm) continue;
-      await prisma.rolePermission.upsert({
-        where: { role_permissionId: { role, permissionId: perm.id } },
-        update: {},
-        create: { role, permissionId: perm.id },
-      });
-    }
-  }
-
-  // Demo: admin2 is denied Products and Reports — concrete admin1-vs-admin2 case.
-  for (const key of ["menu.products", "menu.reports"]) {
-    const perm = permByKey.get(key);
-    if (!perm) continue;
-    await prisma.userPermission.upsert({
-      where: { userId_permissionId: { userId: admin2.id, permissionId: perm.id } },
-      update: { effect: PermissionEffect.DENY, grantedById: admin.id },
-      create: {
-        userId: admin2.id,
-        permissionId: perm.id,
-        effect: PermissionEffect.DENY,
-        grantedById: admin.id,
-      },
+  // Grant every permission to the Administrator role.
+  for (const perm of permissions) {
+    await prisma.rolePermission.upsert({
+      where: { roleId_permissionId: { roleId: adminRole.id, permissionId: perm.id } },
+      update: {},
+      create: { roleId: adminRole.id, permissionId: perm.id },
     });
   }
 
@@ -165,7 +139,7 @@ async function main() {
   }
 
   console.log(
-    `Seeded: users=4, permissions=${permissions.length}, categories=${categories.length}, suppliers=2, products=${products.length}`,
+    `Seeded: roles=1 (Administrator), users=1, permissions=${permissions.length}, categories=${categories.length}, suppliers=2, products=${products.length}`,
   );
 }
 

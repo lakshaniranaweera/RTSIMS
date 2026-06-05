@@ -1,12 +1,13 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { hasPermission } from "@/lib/permissions";
 import { AppShell } from "@/components/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function StoresDashboard() {
   const session = await auth();
-  if (!session?.user) redirect("/login");
-  if (session.user.role !== "STORES" && session.user.role !== "ADMIN") {
+  if (!session?.user?.id) redirect("/login");
+  if (!(await hasPermission(session.user.id, "menu.requests.admin"))) {
     redirect("/login");
   }
 

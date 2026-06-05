@@ -14,12 +14,6 @@ datasource db {
 // ─────────────────────────────────────────────────────────────────────────────
 // Enums
 
-enum Role {
-  ADMIN
-  STORES
-  STAFF
-}
-
 enum RequestStatus {
   PENDING
   ACCEPTED
@@ -65,12 +59,13 @@ model User {
   name         String
   email        String    @unique
   passwordHash String
-  role         Role      @default(STAFF)
+  roleId       String?
   avatarUrl    String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
+  role               Role?            @relation(fields: [roleId], references: [id])
   sessions           Session[]
   requests           Request[]
   requestsProcessed  Request[]        @relation("RequestProcessor")
@@ -87,12 +82,25 @@ model User {
   activationsReviewed    Activation[]     @relation("ActivationsReviewed")
   activationFormsFilled  ActivationForm[] @relation("ActivationFormsFilled")
 
-  @@index([role])
+  @@index([roleId])
   @@index([deletedAt])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Authorization (RBAC + per-user overrides)
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  landingPath String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users           User[]
+  rolePermissions RolePermission[]
+}
 
 model Permission {
   id          String   @id @default(cuid())
@@ -108,13 +116,14 @@ model Permission {
 
 model RolePermission {
   id           String @id @default(cuid())
-  role         Role
+  roleId       String
   permissionId String
 
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
-  @@unique([role, permissionId])
-  @@index([role])
+  @@unique([roleId, permissionId])
+  @@index([roleId])
 }
 
 model UserPermission {

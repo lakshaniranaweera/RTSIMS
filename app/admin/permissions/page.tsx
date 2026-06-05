@@ -26,13 +26,13 @@ export default async function PermissionsIndex() {
           <Card className="hover:border-primary transition-colors h-full">
             <CardHeader>
               <ShieldCheck className="size-6 text-primary" />
-              <CardTitle className="mt-2">By role</CardTitle>
+              <CardTitle className="mt-2">Roles</CardTitle>
               <CardDescription>
-                Default grants applied to every user with that role.
+                Create roles and grant permissions per section.
               </CardDescription>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Toggle which menu items each role sees by default.
+              Add, edit, or remove roles and choose which menu items each one sees.
             </CardContent>
           </Card>
         </Link>

@@ -1,11 +1,13 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { hasPermission } from "@/lib/permissions";
 import { AppShell } from "@/components/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function StaffDashboard() {
   const session = await auth();
-  if (!session?.user || session.user.role !== "STAFF") redirect("/login");
+  if (!session?.user?.id) redirect("/login");
+  if (!(await hasPermission(session.user.id, "menu.browse"))) redirect("/login");
 
   return (
     <AppShell title="Staff · Browse">

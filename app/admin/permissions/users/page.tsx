@@ -15,13 +15,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { Role } from "@prisma/client";
-
-const ROLE_TONE: Record<Role, string> = {
-  ADMIN: "bg-blue-500 text-white",
-  STORES: "bg-amber-500 text-white",
-  STAFF: "bg-emerald-500 text-white",
-};
 
 export default async function UsersPermissionsList() {
   const session = await auth();
@@ -32,12 +25,12 @@ export default async function UsersPermissionsList() {
 
   const users = await prisma.user.findMany({
     where: { deletedAt: null },
-    orderBy: [{ role: "asc" }, { name: "asc" }],
+    orderBy: [{ name: "asc" }],
     select: {
       id: true,
       name: true,
       email: true,
-      role: true,
+      role: { select: { name: true } },
       _count: { select: { permissions: true } },
     },
   });
@@ -65,7 +58,11 @@ export default async function UsersPermissionsList() {
                   <TableCell className="font-medium">{u.name}</TableCell>
                   <TableCell className="text-muted-foreground">{u.email}</TableCell>
                   <TableCell>
-                    <Badge className={ROLE_TONE[u.role]}>{u.role}</Badge>
+                    {u.role ? (
+                      <Badge variant="secondary">{u.role.name}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="tabular-nums">{u._count.permissions}</TableCell>
                   <TableCell>

@@ -36,7 +36,7 @@ export default async function NotificationsPage() {
   }
 
   // Refresh expiry alerts whenever the page loads (cheap & idempotent for admins).
-  if (session.user.role === "ADMIN") {
+  if (await hasPermission(session.user.id, "menu.dashboard.admin")) {
     await syncExpiryNotifications();
   }
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { syncExpiryNotifications, EXPIRY_WINDOW_DAYS, EXPIRY_TYPE } from "@/lib/notifications";
 import { AppShell } from "@/components/app-shell";
@@ -25,7 +26,8 @@ const DAY = 24 * 60 * 60 * 1000;
 
 export default async function AdminDashboard() {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") redirect("/login");
+  if (!session?.user?.id) redirect("/login");
+  if (!(await hasPermission(session.user.id, "menu.dashboard.admin"))) redirect("/login");
 
   // Fan-out idempotent expiry alerts for the admin team
   await syncExpiryNotifications();

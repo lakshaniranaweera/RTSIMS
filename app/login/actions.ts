@@ -4,13 +4,7 @@ import { signIn } from "@/auth";
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import type { Role } from "@prisma/client";
-
-const HOME_BY_ROLE: Record<Role, string> = {
-  ADMIN: "/admin",
-  STORES: "/stores",
-  STAFF: "/staff",
-};
+import { resolveLandingPath } from "@/lib/permissions";
 
 export type LoginState = { error?: string } | undefined;
 
@@ -31,12 +25,12 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
     throw error;
   }
 
-  // Cookie has been set; resolve role for redirect.
+  // Cookie has been set; resolve landing path for redirect.
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { role: true, deletedAt: true },
+    select: { id: true, deletedAt: true },
   });
   if (!user || user.deletedAt) return { error: "Account is unavailable." };
 
-  redirect(HOME_BY_ROLE[user.role]);
+  redirect(await resolveLandingPath(user.id));
 }

@@ -21,13 +21,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { AddUserForm } from "./add-user-form";
 import { RowActions } from "./row-actions";
-import type { Role } from "@prisma/client";
-
-const ROLE_TONE: Record<Role, string> = {
-  ADMIN: "bg-blue-500 text-white",
-  STORES: "bg-amber-500 text-white",
-  STAFF: "bg-emerald-500 text-white",
-};
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", {
   year: "numeric",
@@ -42,17 +35,23 @@ export default async function EmployeesPage() {
     redirect("/admin");
   }
 
-  const users = await prisma.user.findMany({
-    orderBy: [{ deletedAt: "asc" }, { role: "asc" }, { name: "asc" }],
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      createdAt: true,
-      deletedAt: true,
-    },
-  });
+  const [users, roles] = await Promise.all([
+    prisma.user.findMany({
+      orderBy: [{ deletedAt: "asc" }, { name: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: { select: { name: true } },
+        createdAt: true,
+        deletedAt: true,
+      },
+    }),
+    prisma.role.findMany({
+      orderBy: [{ isSystem: "desc" }, { name: "asc" }],
+      select: { id: true, name: true },
+    }),
+  ]);
 
   return (
     <AppShell title="Employees">
@@ -69,7 +68,7 @@ export default async function EmployeesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <AddUserForm />
+            <AddUserForm roles={roles} />
           </CardContent>
         </Card>
 
@@ -99,7 +98,11 @@ export default async function EmployeesPage() {
                     <TableCell className="font-medium">{u.name}</TableCell>
                     <TableCell className="text-muted-foreground">{u.email}</TableCell>
                     <TableCell>
-                      <Badge className={ROLE_TONE[u.role]}>{u.role}</Badge>
+                      {u.role ? (
+                        <Badge variant="secondary">{u.role.name}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {dateFmt.format(u.createdAt)}

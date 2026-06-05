@@ -16,13 +16,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { setUserPermission } from "./actions";
-import type { Role } from "@prisma/client";
-
-const ROLE_TONE: Record<Role, string> = {
-  ADMIN: "bg-blue-500 text-white",
-  STORES: "bg-amber-500 text-white",
-  STAFF: "bg-emerald-500 text-white",
-};
 
 export default async function UserPermissionsEditor({
   params,
@@ -39,16 +32,25 @@ export default async function UserPermissionsEditor({
 
   const user = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, name: true, email: true, role: true, deletedAt: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      roleId: true,
+      role: { select: { name: true } },
+      deletedAt: true,
+    },
   });
   if (!user || user.deletedAt) notFound();
 
   const [permissions, rolePerms, userPerms] = await Promise.all([
     prisma.permission.findMany({ orderBy: [{ group: "asc" }, { label: "asc" }] }),
-    prisma.rolePermission.findMany({
-      where: { role: user.role },
-      select: { permissionId: true },
-    }),
+    user.roleId
+      ? prisma.rolePermission.findMany({
+          where: { roleId: user.roleId },
+          select: { permissionId: true },
+        })
+      : Promise.resolve([]),
     prisma.userPermission.findMany({
       where: { userId: id },
       select: { permissionId: true, effect: true },
@@ -74,7 +76,11 @@ export default async function UserPermissionsEditor({
             <div className="text-lg font-semibold">{user.name}</div>
             <div className="text-sm text-muted-foreground">
               {user.email} ·{" "}
-              <Badge className={ROLE_TONE[user.role]}>{user.role}</Badge>
+              {user.role ? (
+                <Badge variant="secondary">{user.role.name}</Badge>
+              ) : (
+                <Badge variant="outline">no role</Badge>
+              )}
             </div>
           </div>
           <Button

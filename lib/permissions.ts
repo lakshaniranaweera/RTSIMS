@@ -2,20 +2,23 @@ import "server-only";
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { SIDEBAR_ITEMS } from "@/lib/sidebar-config";
 
 export const getEffectivePermissions = cache(
   async (userId: string): Promise<Set<string>> => {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true, deletedAt: true },
+      select: { roleId: true, deletedAt: true },
     });
     if (!user || user.deletedAt) return new Set();
 
     const [rolePerms, userPerms] = await Promise.all([
-      prisma.rolePermission.findMany({
-        where: { role: user.role },
-        select: { permission: { select: { key: true } } },
-      }),
+      user.roleId
+        ? prisma.rolePermission.findMany({
+            where: { roleId: user.roleId },
+            select: { permission: { select: { key: true } } },
+          })
+        : Promise.resolve([]),
       prisma.userPermission.findMany({
         where: { userId },
         select: { effect: true, permission: { select: { key: true } } },
@@ -30,6 +33,25 @@ export const getEffectivePermissions = cache(
     return set;
   },
 );
+
+/**
+ * Resolve where a user should land after login: the configured `landingPath`
+ * on their role, else the first sidebar item they have permission for, else
+ * the notifications centre.
+ */
+export async function resolveLandingPath(userId: string): Promise<string> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: { select: { landingPath: true } } },
+  });
+  if (user?.role?.landingPath) return user.role.landingPath;
+
+  const perms = await getEffectivePermissions(userId);
+  const item = SIDEBAR_ITEMS.find((i) =>
+    i.requiresAny ? i.requiresAny.some((k) => perms.has(k)) : perms.has(i.key),
+  );
+  return item?.href ?? "/notifications";
+}
 
 export async function hasPermission(userId: string, key: string): Promise<boolean> {
   const perms = await getEffectivePermissions(userId);

@@ -1,13 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-
-const HOME_BY_ROLE = {
-  ADMIN: "/admin",
-  STORES: "/stores",
-  STAFF: "/staff",
-} as const;
+import { resolveLandingPath } from "@/lib/permissions";
 
 export default async function Home() {
   const session = await auth();
-  redirect(session?.user?.role ? HOME_BY_ROLE[session.user.role] : "/login");
+  if (!session?.user?.id) redirect("/login");
+  redirect(await resolveLandingPath(session.user.id));
 }

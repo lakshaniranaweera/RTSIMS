@@ -14,13 +14,6 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Boxes } from "lucide-react";
-import type { Role } from "@prisma/client";
-
-const ROLE_TONE: Record<Role, string> = {
-  ADMIN: "bg-blue-500 text-white",
-  STORES: "bg-amber-500 text-white",
-  STAFF: "bg-emerald-500 text-white",
-};
 
 export async function AppSidebar() {
   const session = await auth();
@@ -77,9 +70,11 @@ export async function AppSidebar() {
           <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
             <span className="truncate text-sm font-medium">{session.user.name}</span>
             <div className="flex items-center gap-1">
-              <Badge className={`${ROLE_TONE[session.user.role]} h-4 px-1 text-[10px]`}>
-                {session.user.role}
-              </Badge>
+              {session.user.roleName && (
+                <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+                  {session.user.roleName}
+                </Badge>
+              )}
               <span className="truncate text-xs text-muted-foreground">{session.user.email}</span>
             </div>
           </div>

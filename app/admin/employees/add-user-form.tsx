@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export function AddUserForm() {
+export function AddUserForm({ roles }: { roles: { id: string; name: string }[] }) {
   const [state, formAction, pending] = useActionState<CreateUserState, FormData>(
     createUser,
     undefined,
@@ -71,19 +71,21 @@ export function AddUserForm() {
         )}
       </div>
       <div className="grid gap-1.5">
-        <Label htmlFor="role">Role</Label>
-        <Select name="role" defaultValue="STAFF" disabled={pending}>
-          <SelectTrigger id="role">
+        <Label htmlFor="roleId">Role</Label>
+        <Select name="roleId" defaultValue={roles[0]?.id} disabled={pending || roles.length === 0}>
+          <SelectTrigger id="roleId">
             <SelectValue placeholder="Pick a role" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ADMIN">ADMIN</SelectItem>
-            <SelectItem value="STORES">STORES</SelectItem>
-            <SelectItem value="STAFF">STAFF</SelectItem>
+            {roles.map((r) => (
+              <SelectItem key={r.id} value={r.id}>
+                {r.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
-        {fieldErrs.role?.[0] && (
-          <p className="text-xs text-destructive">{fieldErrs.role[0]}</p>
+        {fieldErrs.roleId?.[0] && (
+          <p className="text-xs text-destructive">{fieldErrs.roleId[0]}</p>
         )}
       </div>
       <div className="sm:col-span-2 flex items-center justify-end gap-2">

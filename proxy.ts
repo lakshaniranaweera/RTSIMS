@@ -1,48 +1,26 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import type { Role } from "@prisma/client";
-
-const HOME_BY_ROLE: Record<Role, string> = {
-  ADMIN: "/admin",
-  STORES: "/stores",
-  STAFF: "/staff",
-};
-
-const ROUTE_RULES: Array<{ prefix: string; allow: Role[] }> = [
-  { prefix: "/admin/requests", allow: ["ADMIN", "STORES", "STAFF"] },
-  { prefix: "/admin", allow: ["ADMIN"] },
-  { prefix: "/stores", allow: ["ADMIN", "STORES"] },
-  { prefix: "/staff", allow: ["STAFF"] },
-];
 
 export default auth((req) => {
   const { nextUrl } = req;
   const path = nextUrl.pathname;
-  const session = req.auth;
-  const role = session?.user?.role;
+  const isLoggedIn = !!req.auth?.user?.id;
 
   // Allow Auth.js endpoints through untouched.
   if (path.startsWith("/api/auth")) return NextResponse.next();
 
-  // Public: /login
+  // Public: /login — bounce authenticated users to their landing page.
+  // ("/" resolves the role's landingPath server-side in app/page.tsx.)
   if (path === "/login") {
-    if (role) return NextResponse.redirect(new URL(HOME_BY_ROLE[role], nextUrl));
+    if (isLoggedIn) return NextResponse.redirect(new URL("/", nextUrl));
     return NextResponse.next();
   }
 
-  // Root: bounce to login or role home
-  if (path === "/") {
-    return NextResponse.redirect(
-      new URL(role ? HOME_BY_ROLE[role] : "/login", nextUrl),
-    );
-  }
-
-  // Role-protected sections
-  const rule = ROUTE_RULES.find((r) => path === r.prefix || path.startsWith(`${r.prefix}/`));
-  if (rule) {
-    if (!role) return NextResponse.redirect(new URL("/login", nextUrl));
-    if (!rule.allow.includes(role))
-      return NextResponse.redirect(new URL(HOME_BY_ROLE[role], nextUrl));
+  // Everything else requires authentication. Fine-grained authorization is
+  // enforced per-page via hasPermission(), since dynamic role names cannot be
+  // checked at the edge without database access.
+  if (!isLoggedIn) {
+    return NextResponse.redirect(new URL("/login", nextUrl));
   }
 
   return NextResponse.next();

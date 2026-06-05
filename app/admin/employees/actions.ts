@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { Prisma, Role } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { requirePermission } from "@/lib/permissions";
@@ -11,7 +11,7 @@ const CreateUserSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters."),
   email: z.string().trim().toLowerCase().email("Enter a valid email."),
   password: z.string().min(8, "Password must be at least 8 characters."),
-  role: z.enum(["ADMIN", "STORES", "STAFF"]),
+  roleId: z.string().min(1, "Pick a role."),
 });
 
 export type CreateUserState =
@@ -29,7 +29,7 @@ export async function createUser(
     name: formData.get("name"),
     email: formData.get("email"),
     password: formData.get("password"),
-    role: formData.get("role"),
+    roleId: formData.get("roleId"),
   });
   if (!parsed.success) {
     return {
@@ -39,7 +39,16 @@ export async function createUser(
     };
   }
 
-  const { name, email, password, role } = parsed.data;
+  const { name, email, password, roleId } = parsed.data;
+
+  const role = await prisma.role.findUnique({ where: { id: roleId }, select: { id: true } });
+  if (!role) {
+    return {
+      ok: false,
+      error: "Please correct the highlighted fields.",
+      fieldErrors: { roleId: ["That role no longer exists."] },
+    };
+  }
 
   try {
     await prisma.user.create({
@@ -47,7 +56,7 @@ export async function createUser(
         name,
         email,
         passwordHash: await hashPassword(password),
-        role: role as Role,
+        roleId,
       },
     });
   } catch (e) {
