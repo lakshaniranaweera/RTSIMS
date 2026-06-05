@@ -9,12 +9,10 @@ export default auth((req) => {
   // Allow Auth.js endpoints through untouched.
   if (path.startsWith("/api/auth")) return NextResponse.next();
 
-  // Public: /login — bounce authenticated users to their landing page.
-  // ("/" resolves the role's landingPath server-side in app/page.tsx.)
-  if (path === "/login") {
-    if (isLoggedIn) return NextResponse.redirect(new URL("/", nextUrl));
-    return NextResponse.next();
-  }
+  // Public: /login is always reachable. The login page itself redirects an
+  // already-authenticated, still-valid user to their landing page (it verifies
+  // the user exists in the DB, so a stale cookie just shows the form).
+  if (path === "/login") return NextResponse.next();
 
   // Everything else requires authentication. Fine-grained authorization is
   // enforced per-page via hasPermission(), since dynamic role names cannot be
