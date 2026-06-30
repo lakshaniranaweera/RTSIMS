@@ -15,7 +15,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { toggleRolePermission } from "../actions";
+import { PermissionToggle } from "./permission-toggle";
 
 export default async function RolePermissionsEditor({
   params,
@@ -108,23 +108,12 @@ export default async function RolePermissionsEditor({
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <form action={toggleRolePermission} className="inline-block">
-                            <input type="hidden" name="roleId" value={role.id} />
-                            <input type="hidden" name="permissionId" value={p.id} />
-                            <input type="hidden" name="grant" value={isOn ? "0" : "1"} />
-                            <button
-                              type="submit"
-                              aria-label={`${isOn ? "Revoke" : "Grant"} ${p.label}`}
-                              className={
-                                "inline-flex h-6 w-12 items-center justify-center rounded-md border text-xs font-medium transition-colors " +
-                                (isOn
-                                  ? "bg-emerald-500 text-white border-emerald-600"
-                                  : "bg-muted text-muted-foreground hover:bg-muted/80")
-                              }
-                            >
-                              {isOn ? "ON" : "off"}
-                            </button>
-                          </form>
+                          <PermissionToggle
+                            roleId={role.id}
+                            permissionId={p.id}
+                            label={p.label}
+                            isOn={isOn}
+                          />
                         </TableCell>
                       </TableRow>
                     );

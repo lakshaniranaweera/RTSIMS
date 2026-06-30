@@ -15,7 +15,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { setUserPermission } from "./actions";
+import { OverrideButtons } from "./override-buttons";
 
 export default async function UserPermissionsEditor({
   params,
@@ -145,36 +145,11 @@ export default async function UserPermissionsEditor({
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex justify-end gap-1">
-                            {(["INHERIT", "ALLOW", "DENY"] as const).map((eff) => {
-                              const active = current === eff;
-                              const tone =
-                                active && eff === "ALLOW"
-                                  ? "bg-emerald-500 text-white border-emerald-600"
-                                  : active && eff === "DENY"
-                                  ? "bg-red-500 text-white border-red-600"
-                                  : active
-                                  ? "bg-foreground text-background"
-                                  : "bg-muted text-muted-foreground hover:bg-muted/80";
-                              return (
-                                <form key={eff} action={setUserPermission}>
-                                  <input type="hidden" name="userId" value={user.id} />
-                                  <input type="hidden" name="permissionId" value={p.id} />
-                                  <input type="hidden" name="effect" value={eff} />
-                                  <button
-                                    type="submit"
-                                    disabled={active}
-                                    className={
-                                      "inline-flex h-7 items-center justify-center rounded-md border px-2 text-xs font-medium transition-colors " +
-                                      tone
-                                    }
-                                  >
-                                    {eff === "INHERIT" ? "Inherit" : eff}
-                                  </button>
-                                </form>
-                              );
-                            })}
-                          </div>
+                          <OverrideButtons
+                            userId={user.id}
+                            permissionId={p.id}
+                            current={current}
+                          />
                         </TableCell>
                       </TableRow>
                     );

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -94,27 +95,36 @@ export function DeleteRoleButton({
   disabled?: boolean;
   disabledReason?: string;
 }) {
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
+
+  const onClick = () => {
+    if (!confirm(`Delete role "${name}"? This cannot be undone.`)) return;
+    const fd = new FormData();
+    fd.set("id", id);
+    startTransition(async () => {
+      try {
+        await deleteRole(fd);
+        toast.success(`Deleted role "${name}"`);
+        router.refresh();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to delete role.");
+      }
+    });
+  };
+
   return (
-    <form
-      action={deleteRole}
-      onSubmit={(e) => {
-        if (!confirm(`Delete role "${name}"? This cannot be undone.`)) {
-          e.preventDefault();
-        }
-      }}
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      disabled={disabled || pending}
+      title={disabled ? disabledReason : undefined}
+      onClick={onClick}
+      className="text-destructive hover:text-destructive"
     >
-      <input type="hidden" name="id" value={id} />
-      <Button
-        type="submit"
-        size="sm"
-        variant="outline"
-        disabled={disabled}
-        title={disabled ? disabledReason : undefined}
-        className="text-destructive hover:text-destructive"
-      >
-        <Trash2 />
-        Delete
-      </Button>
-    </form>
+      <Trash2 />
+      Delete
+    </Button>
   );
 }
